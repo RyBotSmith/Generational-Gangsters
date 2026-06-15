@@ -32,8 +32,6 @@ const crimeCommand    = require('./commands/crime');
 const gtaCommand      = require('./commands/gta');
 const crewCommand     = require('./commands/crew');
 const combatCommand   = require('./commands/combat');
-const searchCommand   = require('./commands/search');
-const shootCommand    = require('./commands/shoot');
 const travelCommand   = require('./commands/travel');
 const businessCommand = require('./commands/business');
 const gamblingCommand = require('./commands/gambling');
@@ -51,7 +49,7 @@ const client = new Client({
 // Slash command registry
 client.commands = new Collection();
 const commandModules = [
-  crimeCommand, gtaCommand, crewCommand, combatCommand, searchCommand, shootCommand,
+  crimeCommand, gtaCommand, crewCommand, combatCommand,
   travelCommand, businessCommand, gamblingCommand, adminCommand,
 ];
 for (const mod of commandModules) {
@@ -109,7 +107,6 @@ const SELECT_ROUTES = {
   'select_crew':     (i) => crewPanel.handleSelect(i),
   'select_gamble':   (i) => gamblingPanel.handleSelect(i),
   'select_business': (i) => businessPanel.handleSelect(i),
-  'select_combat':   (i) => combatPanel.handleSelect(i),
 };
 
 // ── Router helpers ────────────────────────────

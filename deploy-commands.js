@@ -50,12 +50,32 @@ const commands = [
     .setDescription('Manage your crew'),
 
   new SlashCommandBuilder()
-    .setName('attack')
-    .setDescription('Search for and attack another player')
+    .setName('search')
+    .setDescription('Search for intel on a player or their bodyguards')
     .addUserOption(opt =>
       opt.setName('target')
-         .setDescription('The player you want to attack')
-         .setRequired(true)
+         .setDescription('Player to search (leave blank to browse)')
+         .setRequired(false)
+    )
+    .addIntegerOption(opt =>
+      opt.setName('bodyguard_slot')
+         .setDescription('Search a specific bodyguard slot (1-4) instead of the player')
+         .setRequired(false)
+         .addChoices(
+           { name: 'Slot 1', value: 1 },
+           { name: 'Slot 2', value: 2 },
+           { name: 'Slot 3', value: 3 },
+           { name: 'Slot 4', value: 4 },
+         )
+    ),
+
+  new SlashCommandBuilder()
+    .setName('shoot')
+    .setDescription('Shoot a player you have intel on')
+    .addUserOption(opt =>
+      opt.setName('target')
+         .setDescription('Player to shoot (leave blank to browse your intel)')
+         .setRequired(false)
     ),
 
   new SlashCommandBuilder()

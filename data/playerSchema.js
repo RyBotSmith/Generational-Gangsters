@@ -97,6 +97,15 @@ function defaultPlayer(discordId, username, serverId) {
       firstAidKits: 0,
     },
 
+    // ── Combat: Intel System ───────────────────
+    // activeSearches: searches in progress, removed (stripped) on collect.
+    //   { searchId, targetId, targetName, type: 'player'|'bodyguard',
+    //     bgSlot: 1-4|null, startedAt, completesAt, cost }
+    // searchHistory: collected intel, expires SEARCH_INTEL_EXPIRY (3hrs) after collection.
+    //   { searchId, targetId, targetName, type, bgSlot, intel: {...}, collectedAt, expiresAt }
+    activeSearches: [],
+    searchHistory: [],
+
     // ── Crew ──────────────────────────────────
     crewId: null,
     crewRole: null,             // 'leader' | 'member' | null
