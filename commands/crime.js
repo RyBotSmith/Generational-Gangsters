@@ -1,8 +1,11 @@
-// commands/crime.js — Slash command definition only. No game logic.
-// Parse options → call service → send result.
-// TODO: implement in feature session
+const { SlashCommandBuilder } = require('discord.js');
 
 module.exports = {
-  data: null,
-  async execute(interaction) {},
+  data: new SlashCommandBuilder()
+    .setName('crime')
+    .setDescription('Commit a crime to earn cash and XP'),
+
+  async execute(interaction) {
+    await interaction.reply({ content: '🔫 Crime system coming soon!', ephemeral: true });
+  },
 };
