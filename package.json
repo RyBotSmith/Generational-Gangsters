@@ -1,0 +1,18 @@
+{
+  "name": "generational-gangsters",
+  "version": "2.0.0",
+  "description": "Discord Crime RPG Bot",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.15.0",
+    "firebase-admin": "^12.0.0",
+    "dotenv": "^16.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
