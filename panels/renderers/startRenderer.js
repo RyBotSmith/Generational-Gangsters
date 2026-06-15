@@ -129,6 +129,10 @@ function renderCreateResult(result) {
     new ButtonBuilder()
       .setCustomId('panel_profile')
       .setLabel('👤 Profile')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('panel_home')
+      .setLabel('🏠 Home')
       .setStyle(ButtonStyle.Secondary)
   );
 

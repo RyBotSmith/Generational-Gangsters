@@ -27,6 +27,7 @@ const gamblingPanel = require('./panels/gamblingPanel');
 const profilePanel  = require('./panels/profilePanel');
 const adminPanel    = require('./panels/adminPanel');
 const startPanel    = require('./panels/startPanel');
+const homePanel     = require('./panels/homePanel');
 
 // ── Command handlers ──────────────────────────
 const crimeCommand    = require('./commands/crime');
@@ -92,6 +93,10 @@ const BUTTON_SELECT_ROUTES = {
 
   // ── Onboarding (panel_start_*) ────────────
   'panel_start': (i) => startPanel.handle(i),
+
+  // ── Home dashboard ─────────────────────────
+  'panel_home':  (i) => homePanel.handle(i),
+  'panelm_home': (i) => homePanel.handle(i),
 };
 
 // Modal customId prefix → handler
