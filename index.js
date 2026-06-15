@@ -26,6 +26,7 @@ const businessPanel = require('./panels/businessPanel');
 const gamblingPanel = require('./panels/gamblingPanel');
 const profilePanel  = require('./panels/profilePanel');
 const adminPanel    = require('./panels/adminPanel');
+const startPanel    = require('./panels/startPanel');
 
 // ── Command handlers ──────────────────────────
 const crimeCommand    = require('./commands/crime');
@@ -38,6 +39,7 @@ const travelCommand   = require('./commands/travel');
 const businessCommand = require('./commands/business');
 const gamblingCommand = require('./commands/gambling');
 const adminCommand    = require('./commands/admin');
+const startCommand    = require('./commands/start');
 
 // ── Client setup ──────────────────────────────
 const client = new Client({
@@ -51,6 +53,7 @@ const client = new Client({
 // Slash command registry
 client.commands = new Collection();
 const commandModules = [
+  startCommand,
   crimeCommand, gtaCommand, crewCommand, combatCommand, searchCommand, shootCommand,
   travelCommand, businessCommand, gamblingCommand, adminCommand,
 ];
@@ -86,6 +89,9 @@ const BUTTON_SELECT_ROUTES = {
   // ── Admin panels (ap2_ / apm2_) ───────────
   'ap2_':  (i) => adminPanel.handle(i),
   'apm2_': (i) => adminPanel.handle(i),
+
+  // ── Onboarding (panel_start_*) ────────────
+  'panel_start': (i) => startPanel.handle(i),
 };
 
 // Modal customId prefix → handler
@@ -100,6 +106,7 @@ const MODAL_ROUTES = {
   'modal_gamble':   (i) => gamblingPanel.handleModal(i),
   'modal_profile':  (i) => profilePanel.handleModal(i),
   'modal_admin':    (i) => adminPanel.handleModal(i),
+  'modal_start':    (i) => startPanel.handleModal(i),
 };
 
 // Select menu routes (if different from button prefix — extend as needed)
