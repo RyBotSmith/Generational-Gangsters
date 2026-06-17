@@ -14,15 +14,42 @@ function playerRef(serverId, discordId) {
            .collection('players').doc(discordId);
 }
 
+// ── Internal ──────────────────────────────────
+
+/**
+ * If a player's travel timer has expired, commit the arrival and return
+ * the updated player object. This keeps location accurate for every
+ * service that calls getPlayer — no cron required.
+ * Pure data operation — no game logic, just correcting stale state.
+ */
+async function resolveTravelIfArrived(ref, player) {
+  if (!player.travelling || !player.travelEndTime) return player;
+  if (player.travelEndTime > Date.now()) return player;
+
+  const updates = {
+    state:             player.travelDestination,
+    travelling:        false,
+    travelEndTime:     null,
+    travelDestination: null,
+    lastSeen:          Date.now(),
+  };
+
+  await ref.update(updates);
+  return { ...player, ...updates };
+}
+
 // ── Reads ─────────────────────────────────────
 
 /**
  * Get a single player. Returns null if not found.
+ * Automatically resolves expired travel before returning.
  */
 async function getPlayer(serverId, discordId) {
-  const snap = await playerRef(serverId, discordId).get();
+  const ref  = playerRef(serverId, discordId);
+  const snap = await ref.get();
   if (!snap.exists) return null;
-  return snap.data();
+  const player = snap.data();
+  return resolveTravelIfArrived(ref, player);
 }
 
 /**
