@@ -142,10 +142,34 @@ async function handle(interaction) {
       return safeFollowUp(interaction, { embeds: [embeds.error('No player found.')] });
     }
 
-    const intelHistory   = combatService.getIntelHistory(player);
-    const candidates    = await getSearchCandidates(serverId, discordId, player);
+    // Refresh alive/dead status on player intel entries before rendering.
+    // getPlayer already resolves hospital timers, so any revived player will
+    // return alive:true. We patch stale intel and persist if anything changed.
+    const intelHistory = combatService.getIntelHistory(player);
+    let intelDirty = false;
+
+    const refreshedIntel = await Promise.all(
+      intelHistory.map(async h => {
+        if (h.type !== 'player') return h;
+        if (h.intel?.alive !== false) return h; // only refresh dead entries
+        try {
+          const target = await playerRepository.getPlayer(serverId, h.targetId);
+          if (target && target.alive !== false) {
+            intelDirty = true;
+            return { ...h, intel: { ...h.intel, alive: true, health: target.health ?? 100 } };
+          }
+        } catch { /* ignore */ }
+        return h;
+      })
+    );
+
+    if (intelDirty) {
+      await playerRepository.updatePlayer(serverId, discordId, { searchHistory: refreshedIntel });
+    }
+
+    const candidates     = await getSearchCandidates(serverId, discordId, { ...player, searchHistory: refreshedIntel });
     const activeSearches = combatService.getActiveSearchesView(player);
-    return interaction.editReply(renderSearchPanel(candidates, activeSearches, intelHistory));
+    return interaction.editReply(renderSearchPanel(candidates, activeSearches));
   }
 
   // ── panel_combat_shoot — show shoot dropdown ──

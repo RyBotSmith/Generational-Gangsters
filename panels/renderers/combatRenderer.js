@@ -92,7 +92,7 @@ function renderCombatHome(player, intelHistory = [], activeSearches = []) {
  * @param {object[]} candidates  — [{ discordId, username, bodyguards }]
  * @param {object[]} activeSearches
  */
-function renderSearchPanel(candidates = [], activeSearches = [], intelHistory = []) {
+function renderSearchPanel(candidates = [], activeSearches = []) {
   const embed = embeds.base(embeds.COLOURS.info)
     .setTitle('🕵️ Search for Intel')
     .setDescription(
@@ -119,9 +119,6 @@ function renderSearchPanel(candidates = [], activeSearches = [], intelHistory = 
     if (options.length >= 25) break;
     const playerKey = `player:${c.discordId}`;
     if (activeKeys.has(playerKey)) continue;
-    // Skip players we know are dead from intel
-    const playerIntel = intelHistory.find(h => h.type === 'player' && h.targetId === c.discordId);
-    if (playerIntel?.intel?.alive === false) continue;
     options.push({
       label: `${c.username}`.slice(0, 100),
       description: 'Search this player ($5,000 / 5 min)'.slice(0, 100),

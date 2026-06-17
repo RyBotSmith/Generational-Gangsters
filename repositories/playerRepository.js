@@ -38,18 +38,39 @@ async function resolveTravelIfArrived(ref, player) {
   return { ...player, ...updates };
 }
 
+/**
+ * If a player's hospital timer has expired, revive them.
+ * Pure data correction — no game logic.
+ */
+async function resolveHospitalIfExpired(ref, player) {
+  if (!player.hospitalizedUntil) return player;
+  if (player.hospitalizedUntil > Date.now()) return player;
+
+  const updates = {
+    alive:             true,
+    health:            100,
+    hospitalizedUntil: null,
+    lastSeen:          Date.now(),
+  };
+
+  await ref.update(updates);
+  return { ...player, ...updates };
+}
+
 // ── Reads ─────────────────────────────────────
 
 /**
  * Get a single player. Returns null if not found.
- * Automatically resolves expired travel before returning.
+ * Automatically resolves expired travel and hospital timers before returning.
  */
 async function getPlayer(serverId, discordId) {
   const ref  = playerRef(serverId, discordId);
   const snap = await ref.get();
   if (!snap.exists) return null;
-  const player = snap.data();
-  return resolveTravelIfArrived(ref, player);
+  let player = snap.data();
+  player = await resolveTravelIfArrived(ref, player);
+  player = await resolveHospitalIfExpired(ref, player);
+  return player;
 }
 
 /**

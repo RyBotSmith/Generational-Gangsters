@@ -47,11 +47,12 @@ function renderHome(player) {
     .addFields(
       { name: '📍 Location', value: player.state ?? 'Unknown', inline: true },
       { name: '🏅 Rank',     value: `${rank.name} (#${rankIdx})`, inline: true },
-      { name: '✨ XP',       value: `${(player.xp ?? 0).toLocaleString()}`, inline: true },
-      { name: '💰 Cash',     value: formatCash(player.cash ?? 0),   inline: true },
-      { name: '🏦 Bank',     value: formatCash(player.bank ?? 0),   inline: true },
-      { name: '🔫 Bullets',  value: (player.bullets ?? 0).toLocaleString(), inline: true },
-      { name: '🛡️ Bodyguards', value: `${bgAlive}/${bgTotal} alive`, inline: true },
+      { name: '✨ XP',          value: `${(player.xp ?? 0).toLocaleString()}`, inline: true },
+      { name: '💰 Cash',        value: formatCash(player.cash ?? 0),           inline: true },
+      { name: '🏦 Bank',        value: formatCash(player.bank ?? 0),           inline: true },
+      { name: '🔫 Bullets',     value: (player.bullets ?? 0).toLocaleString(), inline: true },
+      { name: '❤️ Health',      value: `${player.health ?? 100}/100`,          inline: true },
+      { name: '🛡️ Bodyguards', value: `${bgAlive}/${bgTotal} alive`,          inline: true },
       { name: '📈 Progress', value: progressStr }
     )
     .setFooter({ text: `Prestige ${player.prestige ?? 0} · Generational Gangsters` });
