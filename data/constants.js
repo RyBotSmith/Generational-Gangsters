@@ -453,6 +453,42 @@ const CREW_CREATION_COST    = 25000;
 const CREW_BASE_CAPACITY    = 2;
 const CREW_MAX_CAPACITY     = 6;
 
+const CREW_UPGRADES = {
+  fail_chance: {
+    id: 'fail_chance', name: 'Reduce Fail Chance',
+    maxLevel: 3, bonusPerLevel: 0.02,   // -2% per level
+  },
+  arrest_chance: {
+    id: 'arrest_chance', name: 'Reduce Arrest Chance',
+    maxLevel: 3, bonusPerLevel: 0.05,   // -5% per level
+  },
+  stop_search: {
+    id: 'stop_search', name: 'Reduce Stop & Search',
+    maxLevel: 2, bonusPerLevel: 0.10,   // -10% per level
+  },
+  collect_cooldown: {
+    id: 'collect_cooldown', name: 'Reduce Collect Cooldown',
+    maxLevel: 3, bonusPerLevel: 300,    // -5 min (300s) per level
+  },
+};
+
+// Crew worker slots
+const CREW_WORKER_SLOTS = {
+  1: { cost: 10000,  unlocksAtCrewLevel: 1 },
+  2: { cost: 25000,  unlocksAtCrewLevel: 2 },
+  3: { cost: 50000,  unlocksAtCrewLevel: 3 },
+  4: { cost: 100000, unlocksAtCrewLevel: 4 },
+  5: { cost: 250000, unlocksAtCrewLevel: 5 },
+  6: { cost: 500000, unlocksAtCrewLevel: 6 },
+};
+
+const CREW_WORKER_COOLDOWN_MULT = 0.80; // workers run at 80% of player cooldown (-20%)
+const CREW_WORKER_ARREST_CHANCE = 0.10;
+const CREW_WORKER_FAIL_CHANCE   = 0.20;
+const CREW_WORKER_SEIZURE_CHANCE = 0.05;
+const CREW_WORKER_ARREST_PAUSE  = 600; // seconds
+
+
 // ── ORGANISED CRIME (OC) ─────────────────────
 const OC_TYPES = {
   drug_run: {
