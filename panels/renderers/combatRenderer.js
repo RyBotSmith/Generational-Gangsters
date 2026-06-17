@@ -13,7 +13,7 @@ const {
 
 const embeds = require('../../utils/embeds');
 const { formatCash, formatDuration, relativeTimestamp } = require('../../utils/helpers');
-const { BODYGUARD_COSTS, BODYGUARD_ATTACK_ORDER } = require('../../data/constants');
+const { BODYGUARD_COSTS } = require('../../data/constants');
 
 const BG_LABELS = {
   1: 'Basic Protection',
@@ -116,32 +116,32 @@ function renderSearchPanel(candidates = [], activeSearches = []) {
   const options = [];
 
   for (const c of candidates.slice(0, 25)) {
-    // Player search option
+    if (options.length >= 25) break;
     const playerKey = `player:${c.discordId}`;
-    if (!activeKeys.has(playerKey) && options.length < 25) {
-      options.push({
-        label: `${c.username}`.slice(0, 100),
-        description: 'Search this player ($5,000 / 5 min)'.slice(0, 100),
-        value: `search_player:${c.discordId}`,
-      });
-    }
+    if (activeKeys.has(playerKey)) continue;
+    options.push({
+      label: `${c.username}`.slice(0, 100),
+      description: 'Search this player ($5,000 / 5 min)'.slice(0, 100),
+      value: `search_player:${c.discordId}`,
+    });
   }
 
-  // Bodyguard sub-options — use search_bg: prefix to avoid collision with shoot dropdown
-  for (const c of candidates.slice(0, 25)) {
-    for (const slot of BODYGUARD_ATTACK_ORDER) {
+  // BG search options — only for slots revealed via a shoot attempt
+  // Candidates with revealed BGs have c.bodyguards populated by getSearchCandidates
+  for (const c of candidates) {
+    if (options.length >= 25) break;
+    for (const [slotStr, bg] of Object.entries(c.bodyguards ?? {})) {
+      if (options.length >= 25) break;
+      const slot = Number(slotStr);
       const bgKey = `bg:${c.discordId}:${slot}`;
       if (activeKeys.has(bgKey)) continue;
-      const has = c.bodyguards?.[slot];
-      if (!has) continue; // only allow searching slots that exist (alive or dead — intel either way)
-      if (options.length >= 25) break;
+      const bgName = bg?.name ?? `Slot ${slot} Bodyguard`;
       options.push({
-        label: `${c.username} — Slot ${slot} BG`.slice(0, 100),
-        description: 'Search this bodyguard ($10,000 / 10 min)'.slice(0, 100),
+        label: bgName.slice(0, 100),
+        description: `Search this bodyguard ($10,000 / 10 min)`.slice(0, 100),
         value: `search_bg:${c.discordId}:${slot}`,
       });
     }
-    if (options.length >= 25) break;
   }
 
   const components = [];
