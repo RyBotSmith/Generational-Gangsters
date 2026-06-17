@@ -26,6 +26,10 @@ if (!TOKEN || !CLIENT_ID) {
 
 const commands = [
   new SlashCommandBuilder()
+    .setName('home')
+    .setDescription('Open your home dashboard'),
+
+  new SlashCommandBuilder()
     .setName('start')
     .setDescription('Create your character and begin your criminal career'),
 

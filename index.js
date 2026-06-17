@@ -30,6 +30,7 @@ const startPanel    = require('./panels/startPanel');
 const homePanel     = require('./panels/homePanel');
 
 // ── Command handlers ──────────────────────────
+const homeCommand     = require('./commands/home');
 const crimeCommand    = require('./commands/crime');
 const gtaCommand      = require('./commands/gta');
 const crewCommand     = require('./commands/crew');
@@ -54,7 +55,7 @@ const client = new Client({
 // Slash command registry
 client.commands = new Collection();
 const commandModules = [
-  startCommand,
+  startCommand, homeCommand,
   crimeCommand, gtaCommand, crewCommand, combatCommand, searchCommand, shootCommand,
   travelCommand, businessCommand, gamblingCommand, adminCommand,
 ];
