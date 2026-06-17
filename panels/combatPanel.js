@@ -179,6 +179,25 @@ async function handle(interaction) {
     return interaction.editReply(renderIntelHistory(intelHistory));
   }
 
+  // ── panel_combat_intel_clear_dead — remove dead entries ──
+  if (customId === 'panel_combat_intel_clear_dead') {
+    await interaction.deferUpdate();
+    const player = await playerRepository.getPlayer(serverId, discordId);
+    if (!player) {
+      return safeFollowUp(interaction, { embeds: [embeds.error('No player found.')] });
+    }
+
+    const intelHistory = combatService.getIntelHistory(player);
+    const cleaned = intelHistory.filter(h => {
+      if (h.type === 'player') return h.intel?.alive !== false;
+      if (h.type === 'bodyguard') return h.intel?.bgAlive !== false;
+      return true;
+    });
+
+    await playerRepository.updatePlayer(serverId, discordId, { searchHistory: cleaned });
+    return interaction.editReply(renderIntelHistory(cleaned));
+  }
+
   // ── panel_combat_bodyguards — show bodyguard management ──
   if (customId === 'panel_combat_bodyguards') {
     await interaction.deferUpdate();

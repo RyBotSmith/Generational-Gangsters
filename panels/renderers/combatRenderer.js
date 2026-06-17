@@ -217,10 +217,13 @@ function renderShootPanel(intelHistory = [], player) {
 
   const options = [];
 
-  for (const h of usable.slice(0, 25)) {
+  for (const h of usable) {
+    if (options.length >= 25) break;
+
     if (h.type === 'player') {
-      if (options.length >= 25) break;
-      const status = h.intel?.alive === false ? '💀 Hospitalized' : `❤️ ${h.intel?.health ?? '?'} HP`;
+      // Skip dead players
+      if (h.intel?.alive === false) continue;
+      const status = `❤️ ${h.intel?.health ?? '?'} HP`;
       const inState = h.intel?.state === player.state ? '' : ' ⚠️ different state';
       options.push({
         label: `${h.targetName}`.slice(0, 100),
@@ -228,14 +231,14 @@ function renderShootPanel(intelHistory = [], player) {
         value: `shoot_player:${h.targetId}`,
       });
     } else if (h.type === 'bodyguard') {
-      if (options.length >= 25) break;
-      // Bodyguard option uses shoot_bg: prefix to avoid collision with player options.
-      // Shooting still routes through shoot(targetId) — the service resolves the
-      // current BG order itself, so this option is informational/navigational.
-      const status = h.intel?.bgAlive ? `🛡️ Alive (${h.intel?.bgHp ?? 100} HP)` : '☠️ Dead';
+      // Skip dead BGs and reveal-only entries (must be a full collected search)
+      if (!h.intel?.bgAlive) continue;
+      if (h.intel?.revealed) continue;
+      // Use the BG name from intel, not the owner name
+      const bgLabel = h.intel?.bgName ?? `Slot ${h.bgSlot} Bodyguard`;
       options.push({
-        label: `${h.targetName} — Slot ${h.bgSlot} BG`.slice(0, 100),
-        description: `${status} • ${h.intel?.ownerState ?? 'Unknown'}`.slice(0, 100),
+        label: bgLabel.slice(0, 100),
+        description: `🛡️ Bodyguard • ${h.intel?.ownerState ?? 'Unknown'}`.slice(0, 100),
         value: `shoot_bg:${h.targetId}:${h.bgSlot}`,
       });
     }
@@ -449,6 +452,7 @@ function renderIntelHistory(intelHistory = []) {
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('panel_combat_shoot').setLabel('🔫 Shoot').setStyle(ButtonStyle.Danger),
     new ButtonBuilder().setCustomId('panel_combat_search').setLabel('🕵️ Search More').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('panel_combat_intel_clear_dead').setLabel('🗑️ Remove Dead').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('panel_combat').setLabel('⬅ Back').setStyle(ButtonStyle.Secondary)
   );
 
