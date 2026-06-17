@@ -77,6 +77,9 @@ const BUTTON_SELECT_ROUTES = {
   'panel_business': (i) => businessPanel.handle(i),
   'panel_gamble':   (i) => gamblingPanel.handle(i),
   'panel_profile':  (i) => profilePanel.handle(i),
+  'panel_upgrades': (i) => profilePanel.handle(i),
+  'panel_upgrade_buy_': (i) => profilePanel.handle(i),
+  'panel_stats':    (i) => profilePanel.handle(i),
 
   // ── Mobile panels (panelm_) ───────────────
   'panelm_crime':    (i) => crimePanel.handle(i),
@@ -87,6 +90,7 @@ const BUTTON_SELECT_ROUTES = {
   'panelm_business': (i) => businessPanel.handle(i),
   'panelm_gamble':   (i) => gamblingPanel.handle(i),
   'panelm_profile':  (i) => profilePanel.handle(i),
+  'panelm_upgrades': (i) => profilePanel.handle(i),
 
   // ── Admin panels (ap2_ / apm2_) ───────────
   'ap2_':  (i) => adminPanel.handle(i),
