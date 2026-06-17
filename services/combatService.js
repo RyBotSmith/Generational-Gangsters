@@ -27,8 +27,8 @@ const logRepository    = require('../repositories/logRepository');
 const { randInt, getRankIndex } = require('../utils/helpers');
 
 // Search durations (seconds)
-const SEARCH_PLAYER_DURATION    = 300;  // 5 mins
-const SEARCH_BODYGUARD_DURATION = 600;  // 10 mins
+const SEARCH_PLAYER_DURATION    = 10;  // 5 mins
+const SEARCH_BODYGUARD_DURATION = 10;  // 10 mins
 
 // ── Internal helpers ──────────────────────────
 
