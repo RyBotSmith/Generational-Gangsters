@@ -71,18 +71,60 @@ function renderCrimeList(crimeList, allCrimesDefs = [], playerRankIndex = 0) {
 function renderCommitResult(commitResult) {
   const { results, jailed } = commitResult;
 
+  // ── Pre-attempt status blocks (single result, no crimes ran) ──
+  const only = results[0];
+  if (results.length === 1 && !only.skipped) {
+    if (only.data?.jailed === true && !only.data?.crimeName) {
+      const secondsRemaining = Math.ceil((only.data.jailedUntil - Date.now()) / 1000);
+      const duration = formatDuration(secondsRemaining);
+      const embed = embeds.base(embeds.COLOURS.warning)
+        .setTitle('🔒 Already in Jail')
+        .setDescription(
+          `You are already in jail.\n\nYou were previously caught in the act and hauled off by the feds. You've been sentenced to **${duration}** remaining in jail.`
+        );
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('panel_crime')
+          .setLabel('🕵️ Crimes')
+          .setStyle(ButtonStyle.Primary),
+        new ButtonBuilder()
+          .setCustomId('panel_home')
+          .setLabel('🏠 Home')
+          .setStyle(ButtonStyle.Secondary)
+      );
+      return { embeds: [embed], components: [row] };
+    }
+    if (only.data?.hospitalized) {
+      const embed = embeds.base(embeds.COLOURS.dark)
+        .setTitle('💀 You\'re in Hospital')
+        .setDescription(only.message);
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('panel_home')
+          .setLabel('🏠 Home')
+          .setStyle(ButtonStyle.Secondary)
+      );
+      return { embeds: [embed], components: [row] };
+    }
+    if (only.data?.travelling) {
+      const embed = embeds.base(embeds.COLOURS.info)
+        .setTitle('✈️ You\'re Travelling')
+        .setDescription(only.message);
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('panel_home')
+          .setLabel('🏠 Home')
+          .setStyle(ButtonStyle.Secondary)
+      );
+      return { embeds: [embed], components: [row] };
+    }
+  }
+
   const lines = results.map(result => {
     // Cooldown skip
     if (result.skipped && result.onCooldown) {
       return `⏳ **${result.data.crimeName}** — on cooldown`;
     }
-
-    // Status blocks (jail / hospital / travelling)
-    if (result.data?.jailed === true && !result.data?.crimeName) {
-      return `🔒 ${result.message}`;
-    }
-    if (result.data?.hospitalized) return `💀 ${result.message}`;
-    if (result.data?.travelling)   return `✈️ ${result.message}`;
 
     const name = result.data?.crimeName ?? '?';
 
