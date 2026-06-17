@@ -5,30 +5,106 @@
 
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const embeds = require('../../utils/embeds');
-const { formatCash, formatDuration, relativeTimestamp, getRankIndex } = require('../../utils/helpers');
-const { RANKS } = require('../../data/constants');
+const { formatCash, getRankIndex } = require('../../utils/helpers');
+const { RANKS, WEAPONS, ARMOUR, VEHICLES, UPGRADES, BODYGUARD_COSTS } = require('../../data/constants');
 
 // ── Profile home panel ────────────────────────
 
 /**
- * Render the profile hub — entry point from home, links to sub-panels.
+ * Render the full profile panel.
  * @param {object} player
  */
 function renderProfileHome(player) {
-  const rankIdx  = getRankIndex(player.xp ?? 0, RANKS);
-  const rank     = RANKS[rankIdx];
-  const bgs      = player.bodyguards ?? {};
-  const bgAlive  = Object.values(bgs).filter(b => b.alive).length;
+  const rankIdx = getRankIndex(player.xp ?? 0, RANKS);
+  const rank    = RANKS[rankIdx];
+  const inv     = player.inventory ?? {};
+  const upg     = player.upgrades  ?? {};
+
+  // ── Equipped items ────────────────────────
+  const weapon   = inv.weapon   ? WEAPONS[inv.weapon.id]   ?? null : null;
+  const armour   = inv.armour   ? ARMOUR[inv.armour.id]    ?? null : null;
+  const headwear = inv.headwear ? ARMOUR[inv.headwear.id]  ?? null : null;
+  const vehicle  = inv.vehicle  ? VEHICLES[inv.vehicle]    ?? null : null;
+
+  // ── Effective bonuses ─────────────────────
+  const weaponReduction  = weapon   ? Math.round(weapon.reduction  * 100) : 0;
+  const crimeItemBonus   = ((weapon?.crimeBonus ?? 0) + (vehicle?.crimeBonus ?? 0)) * 100;
+  const gtaItemBonus     = ((weapon?.gtaBonus   ?? 0) + (vehicle?.gtaBonus   ?? 0)) * 100;
+  const armourTotal      = Math.round(((armour?.armorBonus ?? 0) + (headwear?.armorBonus ?? 0)) * 100);
+
+  // ── Upgrade buffs ─────────────────────────
+  const crimeCdReduction = Math.round((upg.crime_cooldown ?? 0) * (UPGRADES.crime_cooldown?.valuePerLevel ?? 0.08) * 100);
+  const gtaCdReduction   = (upg.gta_cooldown ?? 0) * (UPGRADES.gta_cooldown?.valuePerLevel ?? 30);
+  const bankLimit        = Math.floor(100000 * Math.pow(2, upg.bank_vault ?? 0));
+  const boozeCapacity    = (UPGRADES.booze_capacity?.baseValue ?? 10) + (upg.booze_capacity ?? 0) * (UPGRADES.booze_capacity?.valuePerLevel ?? 5);
+  const drugCapacity     = (UPGRADES.drug_capacity?.baseValue  ?? 10) + (upg.drug_capacity  ?? 0) * (UPGRADES.drug_capacity?.valuePerLevel  ?? 5);
+
+  // ── Bodyguard status ──────────────────────
+  const bgs = player.bodyguards ?? {};
+  const bgLines = [4, 3, 2, 1].map(slot => {
+    const bg   = bgs[slot];
+    const cost = BODYGUARD_COSTS[slot];
+    if (!bg || !bg.alive) return `Slot ${slot} — ☠️ Empty (${formatCash(cost)} to hire)`;
+    return `Slot ${slot} — ✅ **${bg.name}**`;
+  });
+
+  // ── Weapon field ──────────────────────────
+  const weaponStr = weapon
+    ? `**${weapon.name}** — -${weaponReduction}% bullets to kill` +
+      (weapon.crimeBonus ? ` • +${Math.round(weapon.crimeBonus * 100)}% crime` : '') +
+      (weapon.gtaBonus   ? ` • +${Math.round(weapon.gtaBonus   * 100)}% GTA`   : '') +
+      `\n${inv.weapon.shotsUsed ?? 0}/${weapon.durabilityShots} shots • ${inv.weapon.killsUsed ?? 0}/${weapon.durabilityKills} kills`
+    : '*None equipped*';
+
+  const armourStr = [
+    armour   ? `**${armour.name}** — +${Math.round(armour.armorBonus * 100)}% armour` : null,
+    headwear ? `**${headwear.name}** — +${Math.round(headwear.armorBonus * 100)}% armour` : null,
+  ].filter(Boolean).join('\n') || '*None equipped*';
+
+  const vehicleStr = vehicle
+    ? `**${vehicle.name}**` +
+      (vehicle.crimeBonus ? ` • +${Math.round(vehicle.crimeBonus * 100)}% crime` : '') +
+      (vehicle.gtaBonus   ? ` • +${Math.round(vehicle.gtaBonus   * 100)}% GTA`   : '')
+    : '*None equipped*';
 
   const embed = embeds.base(embeds.COLOURS.dark)
     .setTitle(`👤 ${player.characterName ?? player.username ?? 'Profile'}`)
+    .setDescription(
+      `**${rank.name}** · Prestige ${player.prestige ?? 0}/5 · ❤️ ${player.health ?? 100}/100`
+    )
     .addFields(
-      { name: '🏅 Rank',       value: rank.name,                              inline: true },
-      { name: '✨ XP',          value: (player.xp ?? 0).toLocaleString(),      inline: true },
-      { name: '🌟 Prestige',    value: `${player.prestige ?? 0}/5`,            inline: true },
-      { name: '💰 Cash',        value: formatCash(player.cash ?? 0),           inline: true },
-      { name: '🏦 Bank',        value: formatCash(player.bank ?? 0),           inline: true },
-      { name: '🛡️ Bodyguards', value: `${bgAlive}/4 alive`,                   inline: true },
+      // ── Items
+      { name: '🔫 Weapon',      value: weaponStr,   inline: false },
+      { name: '🛡️ Protection',  value: armourStr,   inline: true  },
+      { name: '🚗 Vehicle',     value: vehicleStr,  inline: true  },
+
+      // ── Effective combat stats
+      {
+        name: '⚡ Combat Effectiveness',
+        value: [
+          `Weapon reduction: **-${weaponReduction}%** bullets to kill`,
+          `Armour bonus: **+${armourTotal}%** bullets required to kill you`,
+          `Crime success bonus: **+${Math.round(crimeItemBonus)}%**`,
+          `GTA success bonus: **+${Math.round(gtaItemBonus)}%**`,
+        ].join('\n'),
+        inline: false,
+      },
+
+      // ── Upgrade buffs
+      {
+        name: '⬆️ Upgrade Buffs',
+        value: [
+          `Crime cooldown: **-${crimeCdReduction}%**`,
+          `GTA cooldown: **-${gtaCdReduction}s**`,
+          `Bank limit: **${formatCash(bankLimit)}**`,
+          `Booze capacity: **${boozeCapacity} cases**`,
+          `Drug capacity: **${drugCapacity} units**`,
+        ].join('\n'),
+        inline: false,
+      },
+
+      // ── Bodyguards
+      { name: '🛡️ Bodyguards', value: bgLines.join('\n'), inline: false },
     );
 
   const row1 = new ActionRowBuilder().addComponents(
@@ -59,7 +135,6 @@ function renderProfileHome(player) {
 
   return { embeds: [embed], components: [row1, row2] };
 }
-
 
 
 /**
