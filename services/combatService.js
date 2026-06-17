@@ -261,7 +261,33 @@ function buildIntel(targetPlayer, type, bgSlot) {
   };
 }
 
-// ── Public API ─────────────────────────────────
+/**
+ * After a successful shot, patch the attacker's searchHistory so intel
+ * reflects the current state of the target (alive/hp/bodyguard).
+ * Fire-and-forget — never awaited, never throws.
+ *
+ * @param {string} serverId
+ * @param {string} attackerId
+ * @param {object} attacker        - attacker player object (has searchHistory)
+ * @param {string} targetId
+ * @param {'player'|'bodyguard'} type
+ * @param {number|null} bgSlot
+ * @param {object} intelPatch      - fields to merge into the intel object
+ */
+function patchIntelAfterShot(serverId, attackerId, attacker, targetId, type, bgSlot, intelPatch) {
+  const history = attacker.searchHistory ?? [];
+  const key = searchKey(targetId, type, bgSlot);
+  const idx = history.findIndex(h => searchKey(h.targetId, h.type, h.bgSlot) === key);
+  if (idx === -1) return; // no intel to patch
+
+  const updated = history.map((h, i) =>
+    i === idx ? { ...h, intel: { ...h.intel, ...intelPatch } } : h
+  );
+
+  playerRepository.updatePlayer(serverId, attackerId, { searchHistory: updated }).catch(() => {});
+}
+
+
 
 /**
  * Get a player's current activeSearches with completion state attached.
@@ -569,9 +595,15 @@ async function shoot(serverId, discordId, targetId) {
 
   // ── Location check ─────────────────────────
   if (attacker.state !== victim.state) {
+    // Update intel location if attacker has valid intel on this player —
+    // the failed attempt reveals where the target actually is.
+    patchIntelAfterShot(serverId, attacker.discordId, attacker, victim.discordId, 'player', null, {
+      state: victim.state,
+    });
+
     return {
       success: false,
-      message: `You must be in the same state as **${victim.username ?? 'your target'}** to shoot them. They are in **${victim.state}**.`,
+      message: `**${victim.username ?? 'Your target'}** is in **${victim.state}**. Travel there to shoot them.`,
       data: { wrongState: true, attackerState: attacker.state, victimState: victim.state },
       updates: {},
       log: null,
@@ -628,10 +660,13 @@ async function shootBodyguard(serverId, attacker, victim, bgSlot) {
   await playerRepository.updatePlayer(serverId, attacker.discordId, attackerUpdates);
   await playerRepository.updatePlayer(serverId, victim.discordId, victimUpdates);
 
+  // Patch attacker's intel so the BG shows as dead
+  patchIntelAfterShot(serverId, attacker.discordId, attacker, victim.discordId, 'bodyguard', bgSlot, {
+    bgAlive: false,
+    bgHp: 0,
+  });
+
   logRepository.write(serverId, {
-    discordId: attacker.discordId,
-    actionType: ACTION_TYPES.COMBAT,
-    actionName: 'kill_bodyguard',
     location: attacker.state,
     payload: {
       attackerId: attacker.discordId,
@@ -706,6 +741,12 @@ async function shootPlayer(serverId, attacker, victim) {
     await playerRepository.updatePlayer(serverId, attacker.discordId, attackerUpdates);
     await playerRepository.updatePlayer(serverId, victim.discordId, victimUpdates);
 
+    // Patch attacker's intel so health reflects current state
+    patchIntelAfterShot(serverId, attacker.discordId, attacker, victim.discordId, 'player', null, {
+      health: newHp,
+      alive: true,
+    });
+
     logRepository.write(serverId, {
       discordId: attacker.discordId,
       actionType: ACTION_TYPES.COMBAT,
@@ -772,6 +813,12 @@ async function shootPlayer(serverId, attacker, victim) {
 
   await playerRepository.updatePlayer(serverId, attacker.discordId, attackerUpdates);
   await playerRepository.updatePlayer(serverId, victim.discordId, victimUpdates);
+
+  // Patch attacker's intel so target shows as dead
+  patchIntelAfterShot(serverId, attacker.discordId, attacker, victim.discordId, 'player', null, {
+    alive: false,
+    health: 0,
+  });
 
   logRepository.write(serverId, {
     discordId: attacker.discordId,
