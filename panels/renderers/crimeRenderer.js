@@ -30,8 +30,8 @@ function renderCrimeList(crimeList, allCrimesDefs = [], playerRankIndex = 0) {
   });
 
   // Rank-locked crimes (not in crimeList)
-  const unlockedIds   = new Set(crimeList.map(c => c.crime.id));
-  const lockedLines   = allCrimesDefs
+  const unlockedIds = new Set(crimeList.map(c => c.crime.id));
+  const lockedLines = allCrimesDefs
     .filter(c => !unlockedIds.has(c.id))
     .map(c => `🔒 **${c.name}**`);
 
@@ -95,7 +95,7 @@ function renderCommitResult(commitResult) {
 
     // Failed — jailed
     if (result.data?.jailed && result.data?.jailedUntil) {
-      return `🚔 **${name}** — Arrested! Released ${relativeTimestamp(result.data.jailedUntil)}`;
+      return `🚔 **${name}** — Arrested`;
     }
 
     // Failed — escaped
@@ -105,6 +105,22 @@ function renderCommitResult(commitResult) {
 
     return `❌ **${name}** — ${result.message}`;
   });
+
+  // If jailed, find the arrest result and build the flavour paragraph
+  let arrestBlurb = null;
+  if (jailed) {
+    const arrestResult = results.find(r => r.data?.jailed && r.data?.jailedUntil);
+    if (arrestResult) {
+      const secondsRemaining = Math.ceil((arrestResult.data.jailedUntil - Date.now()) / 1000);
+      const duration = formatDuration(secondsRemaining);
+      arrestBlurb = `You were caught in the act and hauled off by the feds. You've been sentenced to **${duration}** in jail.`;
+    }
+  }
+
+  const description = [
+    lines.join('\n') || 'Nothing to report.',
+    arrestBlurb,
+  ].filter(Boolean).join('\n\n');
 
   const colour = jailed
     ? embeds.COLOURS.warning
@@ -120,7 +136,7 @@ function renderCommitResult(commitResult) {
 
   const embed = embeds.base(colour)
     .setTitle(title)
-    .setDescription(lines.join('\n') || 'Nothing to report.');
+    .setDescription(description);
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
