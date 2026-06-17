@@ -135,15 +135,11 @@ function renderTravelStartResult(result) {
     return renderTravelBlocked(result);
   }
 
-  const { destination, travelEndTime, arrivedImmediately } = result.data;
+  const { destination, travelEndTime } = result.data;
 
-  const desc = arrivedImmediately
-    ? `You've arrived in **${destination}**!`
-    : `You're on your way to **${destination}**.\nArriving ${relativeTimestamp(travelEndTime)}`;
-
-  const embed = arrivedImmediately
-    ? embeds.success(`Arrived in ${destination}!`, desc)
-    : embeds.base(embeds.COLOURS.info).setTitle('✈️ Travelling').setDescription(desc);
+  const embed = embeds.base(embeds.COLOURS.info)
+    .setTitle('✈️ Travelling')
+    .setDescription(`You're on your way to **${destination}**.\nArriving ${relativeTimestamp(travelEndTime)}`);
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
