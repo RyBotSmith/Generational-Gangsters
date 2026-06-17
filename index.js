@@ -117,7 +117,8 @@ const MODAL_ROUTES = {
 // Select menu routes (if different from button prefix — extend as needed)
 const SELECT_ROUTES = {
   'select_crime':    (i) => crimePanel.handleSelect(i),
-  'select_travel':   (i) => travelPanel.handleSelect(i),
+  'select_travel':         (i) => travelPanel.handleSelect(i),
+  'panel_travel_destination': (i) => travelPanel.handleSelect(i),
   'select_crew':     (i) => crewPanel.handleSelect(i),
   'select_gamble':   (i) => gamblingPanel.handleSelect(i),
   'select_business': (i) => businessPanel.handleSelect(i),

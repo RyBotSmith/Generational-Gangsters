@@ -10,7 +10,6 @@ const {
   renderTravelHome,
   renderTierPicker,
   renderTravelStartResult,
-  renderTravelArriveResult,
   renderTravelBlocked,
 } = require('./renderers/travelRenderer');
 const embeds = require('../utils/embeds');
@@ -46,15 +45,6 @@ async function handle(interaction) {
 
     const premiumState = travelService.getPremiumUses(player);
     const payload = renderTravelHome(player, premiumState);
-    return interaction.editReply(payload);
-  }
-
-  // ── panel_travel_arrive ────────────────────
-  if (customId === 'panel_travel_arrive') {
-    await interaction.deferUpdate();
-
-    const result  = await travelService.resolve(serverId, discordId);
-    const payload = renderTravelArriveResult(result);
     return interaction.editReply(payload);
   }
 
