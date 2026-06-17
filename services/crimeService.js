@@ -15,7 +15,7 @@ const {
 
 const playerRepository = require('../repositories/playerRepository');
 const logRepository    = require('../repositories/logRepository');
-const { randInt, getRankIndex, cooldownRemaining } = require('../utils/helpers');
+const { randInt, getRankIndex } = require('../utils/helpers');
 
 // ── Internal helpers ──────────────────────────
 
@@ -75,8 +75,6 @@ function getAllCrimes(player) {
   return Object.values(CRIMES)
     .filter(c => c.rankRequired <= rank)
     .map(c => {
-      const lastKey  = `cooldowns.crime_${c.id}`;
-      // Flatten dot-notation lookup
       const lastUsed = getNestedField(player, `cooldowns.crime_${c.id}`);
       const cooldownMs = effectiveCooldownMs(c);
       const nextAvailableMs = lastUsed ? lastUsed + cooldownMs : 0;
@@ -301,4 +299,73 @@ function getNestedField(obj, path) {
   return path.split('.').reduce((acc, key) => acc?.[key], obj) ?? null;
 }
 
-module.exports = { attemptCrime, getCrimeCooldown, getAllCrimes };
+/**
+ * Commit all eligible crimes in rank order.
+ * Skips rank-locked and on-cooldown crimes.
+ * Stops immediately if a crime results in jail.
+ *
+ * @param {string} serverId
+ * @param {string} discordId
+ * @param {object|null} crew
+ * @returns {{ results: object[], jailed: boolean }}
+ */
+async function commitAllCrimes(serverId, discordId, crew = null) {
+  const player = await playerRepository.getPlayer(serverId, discordId);
+  if (!player) {
+    return { results: [{ success: false, message: 'Player not found.', data: {}, skipped: false }], jailed: false };
+  }
+
+  // Status checks — bail before attempting anything
+  if (player.jailedUntil && Date.now() < player.jailedUntil) {
+    return {
+      results: [{ success: false, message: 'You are in jail.', data: { jailed: true, jailedUntil: player.jailedUntil }, skipped: false }],
+      jailed: true,
+    };
+  }
+
+  if (player.hospitalizedUntil && Date.now() < player.hospitalizedUntil) {
+    return {
+      results: [{ success: false, message: 'You are in hospital.', data: { hospitalized: true, hospitalizedUntil: player.hospitalizedUntil }, skipped: false }],
+      jailed: false,
+    };
+  }
+
+  if (player.travelling && player.travelEndTime > Date.now()) {
+    return {
+      results: [{ success: false, message: 'You are travelling.', data: { travelling: true }, skipped: false }],
+      jailed: false,
+    };
+  }
+
+  const allCrimes = getAllCrimes(player); // sorted by rankRequired
+  const results   = [];
+  let jailed      = false;
+
+  for (const { crime, onCooldown, cooldownRemainingMs, nextAvailableMs } of allCrimes) {
+    // Always include rank-locked crimes as skipped entries (they pass getAllCrimes filter
+    // so all here are rank-unlocked — cooldown and jail are the only skip reasons)
+    if (onCooldown) {
+      results.push({
+        success:  false,
+        skipped:  true,
+        onCooldown: true,
+        message:  `**${crime.name}** is on cooldown.`,
+        data:     { crimeId: crime.id, crimeName: crime.name, onCooldown: true, nextAvailableMs, cooldownRemainingMs },
+      });
+      continue;
+    }
+
+    // Attempt this crime
+    const result = await attemptCrime(serverId, discordId, crime.id, crew);
+    results.push({ ...result, skipped: false });
+
+    if (result.data?.jailed) {
+      jailed = true;
+      break;
+    }
+  }
+
+  return { results, jailed };
+}
+
+module.exports = { attemptCrime, getCrimeCooldown, getAllCrimes, commitAllCrimes };

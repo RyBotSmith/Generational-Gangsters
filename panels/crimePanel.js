@@ -4,10 +4,12 @@
 //  Defer → call service → render result.
 // ─────────────────────────────────────────────
 
-const crimeService  = require('../services/crimeService');
-const crewRepository = require('../repositories/crewRepository');
+const crimeService     = require('../services/crimeService');
+const crewRepository   = require('../repositories/crewRepository');
 const playerRepository = require('../repositories/playerRepository');
-const { renderCrimeList, renderCrimeResult } = require('./renderers/crimeRenderer');
+const { CRIMES, RANKS } = require('../data/constants');
+const { getRankIndex }  = require('../utils/helpers');
+const { renderCrimeList, renderCommitResult } = require('./renderers/crimeRenderer');
 const embeds = require('../utils/embeds');
 
 // ── Helpers ───────────────────────────────────
@@ -35,34 +37,33 @@ async function handle(interaction) {
   // ── panel_crime (root — show crime list) ──
   if (customId === 'panel_crime' || customId === 'panelm_crime') {
     await interaction.deferUpdate();
-    const { player, crew } = await getPlayerAndCrew(serverId, discordId);
+    const { player } = await getPlayerAndCrew(serverId, discordId);
 
     if (!player) {
       return safeFollowUp(interaction, { embeds: [embeds.error('No player found. Use /start to create your character.')] });
     }
 
-    const crimeList = crimeService.getAllCrimes(player);
-    const payload   = renderCrimeList(crimeList);
+    const crimeList      = crimeService.getAllCrimes(player);
+    const allCrimesDefs  = Object.values(CRIMES).sort((a, b) => a.rankRequired - b.rankRequired);
+    const playerRankIndex = getRankIndex(player.xp ?? 0, RANKS);
+    const payload        = renderCrimeList(crimeList, allCrimesDefs, playerRankIndex);
     return interaction.editReply(payload);
   }
 
-  // ── panel_crime_attempt_{crimeId} ─────────
-  if (customId.startsWith('panel_crime_attempt_')) {
-    const crimeId = customId.replace('panel_crime_attempt_', '');
+  // ── panel_crime_commit — attempt all eligible crimes ──
+  if (customId === 'panel_crime_commit') {
     await interaction.deferUpdate();
-
     const { player, crew } = await getPlayerAndCrew(serverId, discordId);
 
     if (!player) {
       return safeFollowUp(interaction, { embeds: [embeds.error('No player found.')] });
     }
 
-    const result  = await crimeService.attemptCrime(serverId, discordId, crimeId, crew);
-    const payload = renderCrimeResult(result);
+    const commitResult = await crimeService.commitAllCrimes(serverId, discordId, crew);
+    const payload      = renderCommitResult(commitResult);
     return interaction.editReply(payload);
   }
 
-  // Unrecognised crime button — shouldn't happen
   console.warn('[crimePanel] Unhandled customId:', customId);
 }
 
