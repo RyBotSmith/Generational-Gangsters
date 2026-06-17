@@ -27,8 +27,8 @@ const logRepository    = require('../repositories/logRepository');
 const { randInt, getRankIndex } = require('../utils/helpers');
 
 // Search durations (seconds)
-const SEARCH_PLAYER_DURATION    = 10;  // 5 mins
-const SEARCH_BODYGUARD_DURATION = 10;  // 10 mins
+const SEARCH_PLAYER_DURATION    = 300;  // 5 mins
+const SEARCH_BODYGUARD_DURATION = 600;  // 10 mins
 
 // ── Internal helpers ──────────────────────────
 
@@ -469,7 +469,7 @@ async function search(serverId, discordId, targetId, type = 'player', bgSlot = n
   return {
     success: true,
     message: type === 'bodyguard'
-      ? `Search dispatched on **${entry.targetName}**'s Slot ${bgSlot} bodyguard. Results in ${Math.ceil(duration / 60)} minutes.`
+      ? `Search dispatched on **${entry.targetName}**'s bodyguard. Results in ${Math.ceil(duration / 60)} minutes.`
       : `Search dispatched on **${entry.targetName}**. Results in ${Math.ceil(duration / 60)} minutes.`,
     data: { entry },
     updates,
