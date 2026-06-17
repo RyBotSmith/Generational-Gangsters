@@ -772,10 +772,15 @@ async function shootBodyguard(serverId, attacker, victim, bgSlot) {
     bodyguards: updatedBodyguards,
   };
 
-  await playerRepository.updatePlayer(serverId, attacker.discordId, attackerUpdates);
-  await playerRepository.updatePlayer(serverId, victim.discordId, victimUpdates);
-
-  // Patch attacker's intel so the BG shows as dead
+  await playerRepository.updatePlayer(serverId, attacker.discordId, {
+    ...attackerUpdates,
+    'stats.bgKills':      (attacker.stats?.bgKills      ?? 0) + 1,
+    'stats.bulletsFired': (attacker.stats?.bulletsFired ?? 0) + bulletsToKill,
+  });
+  await playerRepository.updatePlayer(serverId, victim.discordId, {
+    ...victimUpdates,
+    'stats.bgDeaths': (victim.stats?.bgDeaths ?? 0) + 1,
+  });
   patchIntelAfterShot(serverId, attacker.discordId, attacker, victim.discordId, 'bodyguard', bgSlot, {
     bgAlive: false,
     bgHp: 0,
@@ -853,10 +858,11 @@ async function shootPlayer(serverId, attacker, victim) {
     victimUpdates['inventory.armour']   = newArmour;
     victimUpdates['inventory.headwear'] = newHeadwear;
 
-    await playerRepository.updatePlayer(serverId, attacker.discordId, attackerUpdates);
+    await playerRepository.updatePlayer(serverId, attacker.discordId, {
+      ...attackerUpdates,
+      'stats.bulletsFired': (attacker.stats?.bulletsFired ?? 0) + bulletsToKill,
+    });
     await playerRepository.updatePlayer(serverId, victim.discordId, victimUpdates);
-
-    // Patch attacker's intel so health reflects current state
     patchIntelAfterShot(serverId, attacker.discordId, attacker, victim.discordId, 'player', null, {
       health: newHp,
       alive: true,
@@ -925,6 +931,11 @@ async function shootPlayer(serverId, attacker, victim) {
 
   attackerUpdates.cash    = (attacker.cash ?? 0) + cashStolen;
   attackerUpdates.bullets = attackerUpdates.bullets + bulletsStolen;
+  attackerUpdates['stats.kills']        = (attacker.stats?.kills        ?? 0) + 1;
+  attackerUpdates['stats.bulletsFired'] = (attacker.stats?.bulletsFired ?? 0) + bulletsToKill;
+  attackerUpdates['stats.cashLooted']   = (attacker.stats?.cashLooted   ?? 0) + cashStolen;
+
+  victimUpdates['stats.deaths'] = (victim.stats?.deaths ?? 0) + 1;
 
   await playerRepository.updatePlayer(serverId, attacker.discordId, attackerUpdates);
   await playerRepository.updatePlayer(serverId, victim.discordId, victimUpdates);

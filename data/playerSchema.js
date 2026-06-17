@@ -66,13 +66,73 @@ function defaultPlayer(discordId, username, serverId) {
     hospitalizedUntil: null,    // epoch ms (death respawn)
     witnessProtectionUntil: null, // epoch ms
 
-    // ── Cooldowns (epoch ms of next allowed action) ────
+    // ── Cooldowns (epoch ms of last use) ──────
     cooldowns: {
-      // per-crime cooldowns stored as crimeId → epoch ms
-      crimes: {},               // e.g. { pickpocket: 1234567890000 }
+      // per-crime cooldowns stored flat: crime_${id} → epoch ms
+      // e.g. crime_pickpocket: 1234567890000
       gta: null,
       medKit: null,
       firstAidKit: null,
+    },
+
+    // ── Upgrades ──────────────────────────────
+    // Each key matches an UPGRADES id. Value = current level (0 = not purchased).
+    upgrades: {
+      bank_vault:     0,
+      booze_capacity: 0,
+      drug_capacity:  0,
+      garage_size:    0,
+      crime_cooldown: 0,
+      gta_cooldown:   0,
+    },
+
+    // ── Lifetime stats ────────────────────────
+    stats: {
+      // Crimes
+      crimesAttempted:  0,
+      crimesSucceeded:  0,
+      crimesJailed:     0,
+      cashFromCrimes:   0,
+
+      // GTA
+      gtaAttempted:     0,
+      gtaSucceeded:     0,
+      gtaSold:          0,
+      gtaMelted:        0,
+      cashFromGta:      0,
+      bulletsFromGta:   0,
+
+      // Combat
+      kills:            0,
+      deaths:           0,
+      bulletsFired:     0,
+      cashLooted:       0,
+      bgKills:          0,
+      bgDeaths:         0,
+
+      // Gambling
+      gamesPlayed:      0,
+      gamesWon:         0,
+      totalWagered:     0,
+      netGambling:      0,
+      biggestWin:       0,
+
+      // Booze trafficking
+      boozeBought:      0,
+      boozeSold:        0,
+      boozeSeized:      0,
+      cashFromBooze:    0,
+
+      // Drug trafficking
+      drugsBought:      0,
+      drugsSold:        0,
+      drugsSeized:      0,
+      cashFromDrugs:    0,
+
+      // OC
+      ocAttempted:      0,
+      ocSucceeded:      0,
+      cashFromOc:       0,
     },
 
     // ── Inventory ─────────────────────────────
@@ -90,6 +150,7 @@ function defaultPlayer(discordId, username, serverId) {
       drugs: {
         weed: 0,
         cocaine: 0,
+        ecstasy: 0,
         heroin: 0,
         boughtInState: null,
       },

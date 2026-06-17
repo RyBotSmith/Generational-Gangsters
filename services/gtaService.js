@@ -150,10 +150,11 @@ async function attemptGTA(serverId, discordId, crew = null) {
     const car      = pickRandomCar(rIdx);
     const xpGained = randInt(GTA_XP_RANGE[0], GTA_XP_RANGE[1]);
 
-    // Don't award cash/bullets yet — player chooses melt or sell next
     const updates = {
       ...cooldownUpdate,
       xp: (player.xp ?? 0) + xpGained,
+      'stats.gtaAttempted':  (player.stats?.gtaAttempted  ?? 0) + 1,
+      'stats.gtaSucceeded':  (player.stats?.gtaSucceeded  ?? 0) + 1,
     };
 
     await playerRepository.updatePlayer(serverId, discordId, updates);
@@ -190,7 +191,10 @@ async function attemptGTA(serverId, discordId, crew = null) {
     const jailRoll = Math.random();
     const jailed   = jailRoll < effectiveJailChance;
 
-    let updates = { ...cooldownUpdate };
+    let updates = {
+      ...cooldownUpdate,
+      'stats.gtaAttempted': (player.stats?.gtaAttempted ?? 0) + 1,
+    };
     let jailedUntil = null;
 
     if (jailed) {
@@ -243,7 +247,11 @@ async function meltCar(serverId, discordId, carId) {
   }
 
   const bulletsEarned = car.meltBullets;
-  const updates = { bullets: (player.bullets ?? 0) + bulletsEarned };
+  const updates = {
+    bullets: (player.bullets ?? 0) + bulletsEarned,
+    'stats.gtaMelted':       (player.stats?.gtaMelted       ?? 0) + 1,
+    'stats.bulletsFromGta':  (player.stats?.bulletsFromGta  ?? 0) + bulletsEarned,
+  };
 
   await playerRepository.updatePlayer(serverId, discordId, updates);
 
@@ -283,7 +291,11 @@ async function sellCar(serverId, discordId, carId) {
   }
 
   const cashEarned = car.value;
-  const updates = { cash: (player.cash ?? 0) + cashEarned };
+  const updates = {
+    cash: (player.cash ?? 0) + cashEarned,
+    'stats.gtaSold':      (player.stats?.gtaSold      ?? 0) + 1,
+    'stats.cashFromGta':  (player.stats?.cashFromGta  ?? 0) + cashEarned,
+  };
 
   await playerRepository.updatePlayer(serverId, discordId, updates);
 

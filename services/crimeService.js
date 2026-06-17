@@ -216,6 +216,9 @@ async function attemptCrime(serverId, discordId, crimeId, crew = null) {
       cash:    (player.cash ?? 0) + cashEarned,
       xp:      (player.xp  ?? 0) + xpGained,
       bullets: (player.bullets ?? 0) + bulletsEarned,
+      'stats.crimesAttempted': (player.stats?.crimesAttempted ?? 0) + 1,
+      'stats.crimesSucceeded': (player.stats?.crimesSucceeded ?? 0) + 1,
+      'stats.cashFromCrimes':  (player.stats?.cashFromCrimes  ?? 0) + cashEarned,
     };
 
     await playerRepository.updatePlayer(serverId, discordId, updates);
@@ -246,12 +249,16 @@ async function attemptCrime(serverId, discordId, crimeId, crew = null) {
     const jailRoll = Math.random();
     const jailed   = jailRoll < effectiveJailChance;
 
-    let updates = { ...cooldownUpdate };
+    let updates = {
+      ...cooldownUpdate,
+      'stats.crimesAttempted': (player.stats?.crimesAttempted ?? 0) + 1,
+    };
     let jailedUntil = null;
 
     if (jailed) {
       jailedUntil = now + crime.jailTime * 1000;
       updates.jailedUntil = jailedUntil;
+      updates['stats.crimesJailed'] = (player.stats?.crimesJailed ?? 0) + 1;
     }
 
     await playerRepository.updatePlayer(serverId, discordId, updates);

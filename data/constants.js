@@ -351,7 +351,42 @@ const ARMOUR = {
   },
 };
 
-// ── COMBAT ───────────────────────────────────
+// ── VEHICLES (shop — equip for crime/GTA bonuses) ────────
+// Distinct from CARS (GTA steal pool). These are purchased and equipped.
+const VEHICLES = {
+  bicycle: {
+    id: 'bicycle', name: 'Bicycle',
+    cost: 500, crimeBonus: 0, gtaBonus: 0.03,
+    description: '+3% GTA steal chance.',
+  },
+  scooter: {
+    id: 'scooter', name: 'Scooter',
+    cost: 2000, crimeBonus: 0.02, gtaBonus: 0.05,
+    description: '+2% crime success. +5% GTA steal chance.',
+  },
+  getaway_car: {
+    id: 'getaway_car', name: 'Getaway Car',
+    cost: 8000, crimeBonus: 0.05, gtaBonus: 0.08,
+    description: '+5% crime success. +8% GTA steal chance.',
+  },
+  motorbike: {
+    id: 'motorbike', name: 'Motorbike',
+    cost: 18000, crimeBonus: 0.08, gtaBonus: 0.12,
+    description: '+8% crime success. +12% GTA steal chance.',
+  },
+  super_motorbike: {
+    id: 'super_motorbike', name: 'Super Motorbike',
+    cost: 40000, crimeBonus: 0.12, gtaBonus: 0.18,
+    description: '+12% crime success. +18% GTA steal chance.',
+  },
+  armoured_van: {
+    id: 'armoured_van', name: 'Armoured Van',
+    cost: 120000, crimeBonus: 0.18, gtaBonus: 0.22,
+    description: '+18% crime success. +22% GTA steal chance.',
+  },
+};
+
+
 // Base bullets required to kill a player at each rank index (0–9)
 const RANK_KILL_BULLETS = [200, 300, 450, 650, 900, 1200, 1600, 2100, 2800, 3600];
 
@@ -547,7 +582,68 @@ const MEDICAL_ITEMS = {
   },
 };
 
-// ── PRESTIGE ─────────────────────────────────
+// ── UPGRADES (permanent player upgrades) ─────
+const UPGRADES = {
+  bank_vault: {
+    id: 'bank_vault',
+    name: 'Bank Vault',
+    description: 'Doubles your bank deposit limit. Base: $100,000.',
+    baseCost: 50000,
+    costMultiplier: 2.0,
+    maxLevel: 10,
+    // value handled by getBankLimit() in helpers — doubles each level
+  },
+  booze_capacity: {
+    id: 'booze_capacity',
+    name: 'Booze Storage',
+    description: '+5 booze carry capacity per level. Base: 10 cases.',
+    baseCost: 2000,
+    costMultiplier: 1.5,
+    maxLevel: 10,
+    valuePerLevel: 5,
+    baseValue: 10,
+  },
+  drug_capacity: {
+    id: 'drug_capacity',
+    name: 'Drug Storage',
+    description: '+5 drug carry capacity per level. Base: 10 units.',
+    baseCost: 3000,
+    costMultiplier: 1.5,
+    maxLevel: 10,
+    valuePerLevel: 5,
+    baseValue: 10,
+  },
+  garage_size: {
+    id: 'garage_size',
+    name: 'Garage Extension',
+    description: '+2 garage slots per level. Base: 5 slots.',
+    baseCost: 6000,
+    costMultiplier: 1.8,
+    maxLevel: 5,
+    valuePerLevel: 2,
+    baseValue: 5,
+  },
+  crime_cooldown: {
+    id: 'crime_cooldown',
+    name: 'Hustle Training',
+    description: 'Reduces all crime cooldowns by 8% per level.',
+    baseCost: 12000,
+    costMultiplier: 2.5,
+    maxLevel: 5,
+    valuePerLevel: 0.08, // multiplier reduction per level
+  },
+  gta_cooldown: {
+    id: 'gta_cooldown',
+    name: 'Hot-Wire Pro',
+    description: 'Reduces GTA cooldown by 30 seconds per level.',
+    baseCost: 8000,
+    costMultiplier: 2.0,
+    maxLevel: 5,
+    valuePerLevel: 30, // seconds reduction per level
+  },
+};
+
+
 const PRESTIGE_MAX         = 5;
 const PRESTIGE_REQUIRE_XP  = 1000000; // must be rank 9 (Infamous Gangster)
 const PRESTIGE_CRIME_BONUS = 0.10;    // +10% success rate per prestige (stacks)
@@ -605,6 +701,8 @@ module.exports = {
   CARS,
   WEAPONS,
   ARMOUR,
+  VEHICLES,
+  UPGRADES,
   RANK_KILL_BULLETS,
   BODYGUARD_KILL_BULLETS,
   DEATH_CASH_LOSS_PCT,
