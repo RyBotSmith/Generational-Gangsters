@@ -142,9 +142,10 @@ async function handle(interaction) {
       return safeFollowUp(interaction, { embeds: [embeds.error('No player found.')] });
     }
 
+    const intelHistory   = combatService.getIntelHistory(player);
     const candidates    = await getSearchCandidates(serverId, discordId, player);
     const activeSearches = combatService.getActiveSearchesView(player);
-    return interaction.editReply(renderSearchPanel(candidates, activeSearches));
+    return interaction.editReply(renderSearchPanel(candidates, activeSearches, intelHistory));
   }
 
   // ── panel_combat_shoot — show shoot dropdown ──

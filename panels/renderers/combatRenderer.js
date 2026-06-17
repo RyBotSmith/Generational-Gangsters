@@ -92,7 +92,7 @@ function renderCombatHome(player, intelHistory = [], activeSearches = []) {
  * @param {object[]} candidates  — [{ discordId, username, bodyguards }]
  * @param {object[]} activeSearches
  */
-function renderSearchPanel(candidates = [], activeSearches = []) {
+function renderSearchPanel(candidates = [], activeSearches = [], intelHistory = []) {
   const embed = embeds.base(embeds.COLOURS.info)
     .setTitle('🕵️ Search for Intel')
     .setDescription(
@@ -119,6 +119,9 @@ function renderSearchPanel(candidates = [], activeSearches = []) {
     if (options.length >= 25) break;
     const playerKey = `player:${c.discordId}`;
     if (activeKeys.has(playerKey)) continue;
+    // Skip players we know are dead from intel
+    const playerIntel = intelHistory.find(h => h.type === 'player' && h.targetId === c.discordId);
+    if (playerIntel?.intel?.alive === false) continue;
     options.push({
       label: `${c.username}`.slice(0, 100),
       description: 'Search this player ($5,000 / 5 min)'.slice(0, 100),
@@ -127,7 +130,6 @@ function renderSearchPanel(candidates = [], activeSearches = []) {
   }
 
   // BG search options — only for slots revealed via a shoot attempt
-  // Candidates with revealed BGs have c.bodyguards populated by getSearchCandidates
   for (const c of candidates) {
     if (options.length >= 25) break;
     for (const [slotStr, bg] of Object.entries(c.bodyguards ?? {})) {
@@ -135,6 +137,8 @@ function renderSearchPanel(candidates = [], activeSearches = []) {
       const slot = Number(slotStr);
       const bgKey = `bg:${c.discordId}:${slot}`;
       if (activeKeys.has(bgKey)) continue;
+      // Skip dead BGs
+      if (bg?.alive === false) continue;
       const bgName = bg?.name ?? `Slot ${slot} Bodyguard`;
       options.push({
         label: bgName.slice(0, 100),
@@ -270,17 +274,12 @@ function renderShootPanel(intelHistory = [], player) {
 // ── Shoot results ──────────────────────────────
 
 function renderDamageResult(result) {
-  const { victimName, damage, newHp, bulletsUsed, bulletsRemaining, weaponBroke, armourBroke, headwearBroke } = result.data;
+  const { victimName, bulletsUsed, bulletsRemaining, weaponBroke } = result.data;
 
-  let desc = `🎯 Hit **${victimName}** for **${damage} HP**.\n` +
-             `❤️ Their HP: **${newHp}/100**\n` +
+  let desc = `🎯 You shot **${victimName}**.\n` +
              `🔫 Bullets used: **${bulletsUsed}** (${bulletsRemaining} remaining)`;
 
-  const notes = [];
-  if (weaponBroke)   notes.push('⚠️ Your weapon broke from overuse!');
-  if (armourBroke)   notes.push(`🛡️ ${victimName}'s armour was destroyed!`);
-  if (headwearBroke) notes.push(`🪖 ${victimName}'s headwear was destroyed!`);
-  if (notes.length) desc += `\n\n${notes.join('\n')}`;
+  if (weaponBroke) desc += `\n\n⚠️ Your weapon broke from overuse!`;
 
   const embed = embeds.base(embeds.COLOURS.warning)
     .setTitle('🔫 Shot Fired')
@@ -297,21 +296,15 @@ function renderDamageResult(result) {
 function renderKillResult(result) {
   const {
     victimName, bulletsUsed, bulletsRemaining,
-    cashStolen, bulletsStolen, hospitalizedUntil,
-    weaponBroke, armourBroke, headwearBroke,
+    cashStolen, bulletsStolen, hospitalizedUntil, weaponBroke,
   } = result.data;
 
   let desc = `☠️ You **killed ${victimName}**!\n\n` +
              `💰 Looted: **${formatCash(cashStolen)}**\n` +
              `🔫 Looted: **${bulletsStolen} bullets**\n` +
-             `🔫 Bullets used: **${bulletsUsed}** (${bulletsRemaining} remaining)\n\n` +
-             `🏥 ${victimName} will be in hospital ${relativeTimestamp(hospitalizedUntil)}.`;
+             `🔫 Bullets used: **${bulletsUsed}** (${bulletsRemaining} remaining)`;
 
-  const notes = [];
-  if (weaponBroke)   notes.push('⚠️ Your weapon broke from overuse!');
-  if (armourBroke)   notes.push(`🛡️ ${victimName}'s armour was destroyed!`);
-  if (headwearBroke) notes.push(`🪖 ${victimName}'s headwear was destroyed!`);
-  if (notes.length) desc += `\n\n${notes.join('\n')}`;
+  if (weaponBroke) desc += `\n\n⚠️ Your weapon broke from overuse!`;
 
   const embed = embeds.base(embeds.COLOURS.success)
     .setTitle('💀 Target Eliminated')
@@ -326,14 +319,10 @@ function renderKillResult(result) {
 }
 
 function renderKillBodyguardResult(result) {
-  const { bgName, bgSlot, victimName, bulletsUsed, bulletsRemaining, weaponBroke, remainingBodyguards } = result.data;
+  const { bgName, bulletsUsed, bulletsRemaining, weaponBroke } = result.data;
 
-  let desc = `🛡️ You took down **${bgName}** (Slot ${bgSlot}) — one of **${victimName}**'s bodyguards!\n\n` +
+  let desc = `🛡️ You took down **${bgName}**.\n\n` +
              `🔫 Bullets used: **${bulletsUsed}** (${bulletsRemaining} remaining)`;
-
-  desc += remainingBodyguards
-    ? `\n\n${victimName} still has bodyguards protecting them.`
-    : `\n\n${victimName} has no bodyguards left — they're exposed!`;
 
   if (weaponBroke) desc += '\n\n⚠️ Your weapon broke from overuse!';
 
@@ -392,11 +381,12 @@ function renderCollectResults(result) {
 
   const lines = collected.map(c => {
     if (c.type === 'bodyguard') {
-      const status = c.intel?.bgAlive ? `🛡️ Alive (${c.intel?.bgHp ?? 100} HP)` : '☠️ Dead';
-      return `**${c.targetName}** — Slot ${c.bgSlot} Bodyguard: ${status}`;
+      const bgName = c.intel?.bgName ?? `Slot ${c.bgSlot} Bodyguard`;
+      const status = c.intel?.bgAlive ? '🛡️ Alive' : '☠️ Dead';
+      return `**${bgName}** — ${status} • 📍 ${c.intel?.ownerState ?? 'Unknown'}`;
     }
-    const status = c.intel?.alive === false ? '💀 Hospitalized' : `❤️ ${c.intel?.health ?? '?'} HP`;
-    return `**${c.targetName}** — ${c.intel?.rank ?? '?'} • ${status} • 📍 ${c.intel?.state ?? 'Unknown'}`;
+    const status = c.intel?.alive === false ? '💀 Hospitalized' : '✅ Active';
+    return `**${c.targetName}** — ${status} • 📍 ${c.intel?.state ?? 'Unknown'}`;
   });
 
   const embed = embeds.success(
@@ -436,11 +426,12 @@ function renderIntelHistory(intelHistory = []) {
     .map(h => {
       const expires = relativeTimestamp(h.expiresAt);
       if (h.type === 'bodyguard') {
-        const status = h.intel?.bgAlive ? `🛡️ Alive (${h.intel?.bgHp ?? 100} HP)` : '☠️ Dead';
-        return `**${h.targetName}** — Slot ${h.bgSlot} BG: ${status} • expires ${expires}`;
+        const bgName = h.intel?.bgName ?? `Slot ${h.bgSlot} Bodyguard`;
+        const status = h.intel?.bgAlive ? '🛡️ Alive' : '☠️ Dead';
+        return `**${bgName}** — ${status} • 📍 ${h.intel?.ownerState ?? 'Unknown'} • expires ${expires}`;
       }
-      const status = h.intel?.alive === false ? '💀 Hospitalized' : `❤️ ${h.intel?.health ?? '?'} HP`;
-      return `**${h.targetName}** — ${h.intel?.rank ?? '?'} • ${status} • 📍 ${h.intel?.state ?? 'Unknown'} • expires ${expires}`;
+      const status = h.intel?.alive === false ? '💀 Hospitalized' : '✅ Active';
+      return `**${h.targetName}** — ${status} • 📍 ${h.intel?.state ?? 'Unknown'} • expires ${expires}`;
     });
 
   // Discord embed description limit ~4096 — chunk if needed (rare)
