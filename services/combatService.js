@@ -287,6 +287,42 @@ function patchIntelAfterShot(serverId, attackerId, attacker, targetId, type, bgS
   playerRepository.updatePlayer(serverId, attackerId, { searchHistory: updated }).catch(() => {});
 }
 
+/**
+ * When a shoot hits a bodyguard, write a lightweight reveal entry into
+ * the attacker's searchHistory so that BG slot appears in the search dropdown.
+ * If an entry already exists for this slot it is left untouched.
+ * Fire-and-forget — never awaited, never throws.
+ */
+function revealBodyguard(serverId, attacker, victim, bgSlot) {
+  const history = attacker.searchHistory ?? [];
+  const key = searchKey(victim.discordId, 'bodyguard', bgSlot);
+  const alreadyRevealed = history.some(h => searchKey(h.targetId, h.type, h.bgSlot) === key);
+  if (alreadyRevealed) return;
+
+  const bg = victim.bodyguards?.[bgSlot];
+  const now = Date.now();
+
+  const revealEntry = {
+    searchId:    null,
+    targetId:    victim.discordId,
+    targetName:  victim.username ?? victim.discordId,
+    type:        'bodyguard',
+    bgSlot,
+    intel: {
+      bgName:     bg?.name ?? `Slot ${bgSlot} Bodyguard`,
+      bgAlive:    bg?.alive ?? true,
+      bgHp:       bg?.hp ?? 100,
+      revealed:   true,
+      ownerState: victim.state ?? null,
+    },
+    collectedAt: now,
+    expiresAt:   now + SEARCH_INTEL_EXPIRY * 1000,
+  };
+
+  const updatedHistory = [...history, revealEntry];
+  playerRepository.updatePlayer(serverId, attacker.discordId, { searchHistory: updatedHistory }).catch(() => {});
+}
+
 
 
 /**
@@ -614,15 +650,94 @@ async function shoot(serverId, discordId, targetId) {
   const bgSlot = getNextBodyguardSlot(victim);
 
   if (bgSlot !== null) {
-    return shootBodyguard(serverId, attacker, victim, bgSlot);
+    // Reveal this BG slot in the attacker's searchHistory so it appears
+    // in the search dropdown — fire-and-forget, expiry matches intel window.
+    revealBodyguard(serverId, attacker, victim, bgSlot);
+
+    const bg = victim.bodyguards?.[bgSlot];
+    const bgName = bg?.name ?? `Slot ${bgSlot} Bodyguard`;
+
+    return {
+      success: false,
+      message: `**${victim.username ?? 'Your target'}** is protected by **${bgName}**. Search and eliminate their bodyguard first.`,
+      data: {
+        outcome: 'blocked_by_bodyguard',
+        victimId: victim.discordId,
+        victimName: victim.username,
+        bgSlot,
+        bgName,
+      },
+      updates: {},
+      log: null,
+    };
   }
 
   return shootPlayer(serverId, attacker, victim);
 }
 
 /**
- * Internal: resolve a shot against a bodyguard slot.
+ * Public: shoot a specific bodyguard slot directly (after intel collected).
+ * Called when player selects a BG from the shoot dropdown.
+ *
+ * @param {string} serverId
+ * @param {string} discordId  - attacker
+ * @param {string} targetId   - BG owner
+ * @param {number} bgSlot     - slot to shoot (1-4)
  */
+async function shootBg(serverId, discordId, targetId, bgSlot) {
+  if (targetId === discordId) {
+    return { success: false, message: 'You cannot shoot yourself.', data: {}, updates: {}, log: null };
+  }
+
+  const attacker = await playerRepository.getPlayer(serverId, discordId);
+  if (!attacker) {
+    return { success: false, message: 'Player not found.', data: {}, updates: {}, log: null };
+  }
+
+  const victim = await playerRepository.getPlayer(serverId, targetId);
+  if (!victim) {
+    return { success: false, message: 'Target not found.', data: {}, updates: {}, log: null };
+  }
+
+  // ── Status checks (attacker) ──────────────
+  if (attacker.jailedUntil && Date.now() < attacker.jailedUntil) {
+    return { success: false, message: 'You are in jail.', data: { jailed: true, jailedUntil: attacker.jailedUntil }, updates: {}, log: null };
+  }
+  if (attacker.hospitalizedUntil && Date.now() < attacker.hospitalizedUntil) {
+    return { success: false, message: 'You are in hospital.', data: { hospitalized: true, hospitalizedUntil: attacker.hospitalizedUntil }, updates: {}, log: null };
+  }
+  if (attacker.travelling && attacker.travelEndTime > Date.now()) {
+    return { success: false, message: 'You are travelling.', data: { travelling: true }, updates: {}, log: null };
+  }
+
+  // ── Validate BG slot ──────────────────────
+  const bg = victim.bodyguards?.[bgSlot];
+  if (!bg || !bg.alive) {
+    return {
+      success: false,
+      message: `That bodyguard slot is already dead or doesn't exist.`,
+      data: { bgAlreadyDead: true },
+      updates: {},
+      log: null,
+    };
+  }
+
+  // ── Location check ────────────────────────
+  if (attacker.state !== victim.state) {
+    patchIntelAfterShot(serverId, attacker.discordId, attacker, victim.discordId, 'bodyguard', bgSlot, {
+      ownerState: victim.state,
+    });
+    return {
+      success: false,
+      message: `**${bg.name ?? `Slot ${bgSlot} Bodyguard`}** is in **${victim.state}**. Travel there to shoot them.`,
+      data: { wrongState: true, attackerState: attacker.state, victimState: victim.state },
+      updates: {},
+      log: null,
+    };
+  }
+
+  return shootBodyguard(serverId, attacker, victim, bgSlot);
+}
 async function shootBodyguard(serverId, attacker, victim, bgSlot) {
   const bullets = (attacker.bullets ?? 0);
   const bulletsToKill = calcBulletsToKillBodyguard();
@@ -941,6 +1056,7 @@ module.exports = {
   search,
   collectResults,
   shoot,
+  shootBg,
   calcBulletsToKill,
   calcBulletsToKillBodyguard,
   calcDamage,

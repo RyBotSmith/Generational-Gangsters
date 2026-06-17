@@ -38,24 +38,33 @@ function safeFollowUp(interaction, payload) {
 }
 
 /**
- * Build the "search candidates" list — other alive players the searching
- * player could target, including their known bodyguard slot occupancy.
+ * Build the "search candidates" list for the search dropdown.
  *
- * Sourced from search history + a basic leaderboard scan so the dropdown
- * has reasonable options even with no prior intel.
+ * Rules (per GDD):
+ * - All alive players are visible as search targets from the start
+ * - BG slots only appear once the player has COLLECTED intel on that player
+ *   (i.e. a searchHistory entry of type 'player' exists for them)
  */
 async function getSearchCandidates(serverId, discordId, player) {
   const candidates = new Map();
 
-  // From intel history — players already known
-  for (const h of combatService.getIntelHistory(player)) {
+  // Build set of targetId:slot keys where BGs have been revealed via shoot
+  const intelHistory = combatService.getIntelHistory(player);
+  const revealedBgKeys = new Set(
+    intelHistory
+      .filter(h => h.type === 'bodyguard')
+      .map(h => `${h.targetId}:${h.bgSlot}`)
+  );
+
+  // Seed candidates from intel history (known players)
+  for (const h of intelHistory) {
     if (h.targetId === discordId) continue;
     if (!candidates.has(h.targetId)) {
       candidates.set(h.targetId, { discordId: h.targetId, username: h.targetName, bodyguards: {} });
     }
   }
 
-  // From active searches — players currently being searched
+  // From active searches — players currently being searched (player only, no BGs yet)
   for (const s of combatService.getActiveSearchesView(player)) {
     if (s.targetId === discordId) continue;
     if (!candidates.has(s.targetId)) {
@@ -63,7 +72,7 @@ async function getSearchCandidates(serverId, discordId, player) {
     }
   }
 
-  // Broaden with a leaderboard sample so new players have targets too
+  // Broaden with leaderboard — players only, no BG data yet
   try {
     const lb = await playerRepository.getLeaderboard(serverId, 'xp', 25);
     for (const p of lb) {
@@ -72,30 +81,23 @@ async function getSearchCandidates(serverId, discordId, player) {
         candidates.set(p.discordId, {
           discordId: p.discordId,
           username: p.username ?? p.discordId,
-          bodyguards: p.bodyguards ?? {},
+          bodyguards: {},
         });
-      } else {
-        // Fill in bodyguard data if we now have it from a live read
-        const existing = candidates.get(p.discordId);
-        if (!existing.bodyguards || Object.keys(existing.bodyguards).length === 0) {
-          existing.bodyguards = p.bodyguards ?? {};
-        }
       }
     }
   } catch {
     // Leaderboard lookup is best-effort
   }
 
-  // For candidates sourced only from intel/active-searches, fetch live
-  // bodyguard slot data so the BG search sub-options are accurate.
+  // Only fetch live BG data for players where we have a revealed BG slot
   for (const [id, c] of candidates) {
-    if (!c.bodyguards || Object.keys(c.bodyguards).length === 0) {
-      try {
-        const live = await playerRepository.getPlayer(serverId, id);
-        if (live) c.bodyguards = live.bodyguards ?? {};
-      } catch {
-        // ignore
-      }
+    const hasRevealedBg = [...revealedBgKeys].some(k => k.startsWith(`${id}:`));
+    if (!hasRevealedBg) continue;
+    try {
+      const live = await playerRepository.getPlayer(serverId, id);
+      if (live) c.bodyguards = live.bodyguards ?? {};
+    } catch {
+      // ignore
     }
   }
 
@@ -248,22 +250,23 @@ async function handleSelect(interaction) {
     await interaction.deferUpdate();
 
     const value = interaction.values[0];
+    const attackerBefore = await playerRepository.getPlayer(serverId, discordId);
+    let result;
 
-    // Both shoot_player: and shoot_bg: route to the same shoot() call —
-    // the service resolves bodyguard order itself from current live state.
-    // The prefix only distinguishes dropdown option identity (per GDD bug note).
-    let targetId;
     if (value.startsWith('shoot_bg:')) {
-      [, targetId] = value.split(':'); // shoot_bg:{targetId}:{slot}
+      // shoot_bg:{targetId}:{slot}
+      const parts = value.split(':');
+      const targetId = parts[1];
+      const bgSlot   = Number(parts[2]);
+      result = await combatService.shootBg(serverId, discordId, targetId, bgSlot);
     } else if (value.startsWith('shoot_player:')) {
-      [, targetId] = value.split(':'); // shoot_player:{targetId}
+      // shoot_player:{targetId}
+      const [, targetId] = value.split(':');
+      result = await combatService.shoot(serverId, discordId, targetId);
     } else {
       console.warn('[combatPanel] Unrecognised shoot select value:', value);
       return interaction.editReply({ embeds: [embeds.error('Unrecognised selection.')], components: [] });
     }
-
-    const attackerBefore = await playerRepository.getPlayer(serverId, discordId);
-    const result = await combatService.shoot(serverId, discordId, targetId);
 
     await interaction.editReply(renderShootResult(result));
 
