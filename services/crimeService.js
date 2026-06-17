@@ -337,7 +337,13 @@ async function commitAllCrimes(serverId, discordId, crew = null) {
     };
   }
 
-  const allCrimes = getAllCrimes(player); // sorted by rankRequired
+  const allCrimes = getAllCrimes(player);
+
+  // Shuffle so high-tier crimes aren't always attempted last
+  for (let i = allCrimes.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [allCrimes[i], allCrimes[j]] = [allCrimes[j], allCrimes[i]];
+  }
   const results   = [];
   let jailed      = false;
 
