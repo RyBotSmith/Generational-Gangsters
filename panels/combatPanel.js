@@ -89,13 +89,23 @@ async function getSearchCandidates(serverId, discordId, player) {
     // Leaderboard lookup is best-effort
   }
 
-  // Only fetch live BG data for players where we have a revealed BG slot
+  // Only populate specific revealed BG slots — not the whole bodyguards object
   for (const [id, c] of candidates) {
-    const hasRevealedBg = [...revealedBgKeys].some(k => k.startsWith(`${id}:`));
-    if (!hasRevealedBg) continue;
+    const revealedSlots = [...revealedBgKeys]
+      .filter(k => k.startsWith(`${id}:`))
+      .map(k => Number(k.split(':')[1]));
+    if (revealedSlots.length === 0) continue;
+
     try {
       const live = await playerRepository.getPlayer(serverId, id);
-      if (live) c.bodyguards = live.bodyguards ?? {};
+      if (!live) continue;
+      // Only add the specific revealed slots, not all bodyguards
+      c.bodyguards = {};
+      for (const slot of revealedSlots) {
+        if (live.bodyguards?.[slot]) {
+          c.bodyguards[slot] = live.bodyguards[slot];
+        }
+      }
     } catch {
       // ignore
     }
