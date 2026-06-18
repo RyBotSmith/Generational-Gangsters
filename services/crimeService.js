@@ -190,7 +190,8 @@ async function attemptCrime(serverId, discordId, crimeId, crew = null) {
   // ── Success rate calculation ──────────────
   const itemBonus     = getItemBonus(player);
   const { crewFailBonus, crewArrestReduction } = getCrewBonuses(crew);
-  const prestigeBonus = (player.prestige ?? 0) * PRESTIGE_CRIME_BONUS;
+  const { getCrimePrestigeBonus } = require('./prestigeService');
+  const prestigeBonus = getCrimePrestigeBonus(player);
 
   const finalRate = Math.min(
     0.95,

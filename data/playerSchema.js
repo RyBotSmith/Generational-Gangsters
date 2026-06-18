@@ -30,6 +30,9 @@ function defaultPlayer(discordId, username, serverId) {
     xp: 0,
     rankIndex: 0,               // 0–9, derived from XP but cached for reads
     prestige: 0,                // 0–5
+    prestigeAllocations: [],    // ['crime'|'gta'] per prestige 1-3
+    prestige4Perk: null,        // 'cooldown' | 'capacity'
+    prestige5Perk: null,        // 'bullets' | 'cash'
 
     // ── Economy ───────────────────────────────
     cash: 0,                    // on-hand, lootable on death

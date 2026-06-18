@@ -138,7 +138,8 @@ async function attemptGTA(serverId, discordId, crew = null) {
   const rIdx = rankIndex(player);
   const { crewFailBonus, crewArrestReduction } = getCrewBonuses(crew);
   const gtaItemBonus  = getGtaItemBonus(player);
-  const prestigeBonus = (player.prestige ?? 0) * PRESTIGE_CRIME_BONUS;
+  const { getGtaPrestigeBonus } = require('./prestigeService');
+  const prestigeBonus = getGtaPrestigeBonus(player);
 
   const finalRate = Math.min(
     GTA_MAX_RATE,

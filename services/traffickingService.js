@@ -193,6 +193,18 @@ async function buy(serverId, discordId, productId, quantity) {
     return { success: false, message: `You need a higher rank to traffic ${product.name}.`, data: {}, updates: {} };
   }
 
+  // Buy cooldown check (set when player travels with stock)
+  const cooldownKey = type === 'booze' ? 'booze_buy' : 'drug_buy';
+  const cooldownUntil = player.cooldowns?.[cooldownKey] ?? 0;
+  if (Date.now() < cooldownUntil) {
+    return {
+      success: false,
+      message: `You recently travelled with ${type}. You can buy again <t:${Math.floor(cooldownUntil / 1000)}:R>.`,
+      data: { onCooldown: true, cooldownUntil },
+      updates: {},
+    };
+  }
+
   // Capacity check
   const type     = product.type;
   const capacity = getCapacity(player, type);

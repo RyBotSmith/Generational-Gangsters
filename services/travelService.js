@@ -171,6 +171,13 @@ async function start(serverId, discordId, destination, tierId) {
     ...premiumUpdates,
   };
 
+  // If carrying booze or drugs, stamp buy cooldowns so they must wait 1hr after arrival
+  const inv = player.inventory ?? {};
+  const boozeCarried = (inv.booze?.beer ?? 0) + (inv.booze?.spirits ?? 0);
+  const drugsCarried = (inv.drugs?.weed ?? 0) + (inv.drugs?.cocaine ?? 0) + (inv.drugs?.ecstasy ?? 0) + (inv.drugs?.heroin ?? 0);
+  if (boozeCarried > 0) updates['cooldowns.booze_buy'] = travelEndTime + 3600000; // arrives + 1hr
+  if (drugsCarried > 0) updates['cooldowns.drug_buy']  = travelEndTime + 3600000;
+
   await playerRepository.updatePlayer(serverId, discordId, updates);
 
   logRepository.write(serverId, {

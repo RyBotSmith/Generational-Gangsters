@@ -6,6 +6,7 @@
 
 const upgradeService   = require('../services/upgradeService');
 const inventoryService = require('../services/inventoryService');
+const prestigeService  = require('../services/prestigeService');
 const playerRepository = require('../repositories/playerRepository');
 const {
   renderProfileHome,
@@ -14,6 +15,7 @@ const {
   renderStatsPanel,
 } = require('./renderers/profileRenderer');
 const { renderInventoryHome, renderInventoryActionResult } = require('./renderers/inventoryRenderer');
+const { renderPrestigeHome, renderPrestigeResult }         = require('./renderers/prestigeRenderer');
 const embeds = require('../utils/embeds');
 
 function safeFollowUp(interaction, payload) {
@@ -92,7 +94,17 @@ async function handle(interaction) {
   // ── panel_prestige ────────────────────────
   if (customId === 'panel_prestige') {
     await interaction.deferUpdate();
-    return safeFollowUp(interaction, { embeds: [embeds.info('Coming Soon', 'Prestige system is not yet available.')] });
+    const result = await prestigeService.getPrestigeState(serverId, discordId);
+    if (!result.success) return safeFollowUp(interaction, { embeds: [embeds.error(result.message)] });
+    return interaction.editReply(renderPrestigeHome(result.data));
+  }
+
+  // ── panel_prestige_choose_{choice} ────────
+  if (customId.startsWith('panel_prestige_choose_')) {
+    const choice = customId.replace('panel_prestige_choose_', '');
+    await interaction.deferUpdate();
+    const result = await prestigeService.prestige(serverId, discordId, choice);
+    return interaction.editReply(renderPrestigeResult(result));
   }
 
   // ── panel_stats — show stats panel ──
