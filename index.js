@@ -22,6 +22,7 @@ const gtaPanel      = require('./panels/gtaPanel');
 const crewPanel     = require('./panels/crewPanel');
 const combatPanel   = require('./panels/combatPanel');
 const travelPanel   = require('./panels/travelPanel');
+const bankPanel     = require('./panels/bankPanel');
 const shopPanel     = require('./panels/shopPanel');
 const businessPanel = require('./panels/businessPanel');
 const gamblingPanel = require('./panels/gamblingPanel');
@@ -75,6 +76,8 @@ const BUTTON_SELECT_ROUTES = {
   'panel_crew':         (i) => crewPanel.handle(i),
   'panel_combat':       (i) => combatPanel.handle(i),
   'panel_travel':       (i) => travelPanel.handle(i),
+  'panel_bank':         (i) => bankPanel.handle(i),
+  'panelm_bank':        (i) => bankPanel.handle(i),
   'panel_shop':         (i) => shopPanel.handle(i),
   'panelm_shop':        (i) => shopPanel.handle(i),
   'panel_business':     (i) => businessPanel.handle(i),
@@ -114,6 +117,7 @@ const BUTTON_SELECT_ROUTES = {
 // Modal customId prefix → handler
 // MUST be resolved before any deferUpdate / deferReply
 const MODAL_ROUTES = {
+  'modal_bank':     (i) => bankPanel.handleModal(i),
   'modal_crime':    (i) => crimePanel.handleModal(i),
   'modal_gta':      (i) => gtaPanel.handleModal(i),
   'modal_crew':     (i) => crewPanel.handleModal(i),

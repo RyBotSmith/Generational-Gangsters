@@ -81,7 +81,7 @@ function renderHome(player) {
       .setStyle(ButtonStyle.Success)
   );
 
-  // Row 2: crew, business, profile, gamble
+  // Row 2: crew, business, profile, gamble, bank
   const row2 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('panel_crew')
@@ -94,6 +94,10 @@ function renderHome(player) {
     new ButtonBuilder()
       .setCustomId('panel_profile')
       .setLabel('👤 Profile')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('panel_bank')
+      .setLabel('🏦 Bank')
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('panel_gamble')
