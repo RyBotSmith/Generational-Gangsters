@@ -81,11 +81,15 @@ function renderHome(player) {
       .setStyle(ButtonStyle.Success)
   );
 
-  // Row 2: crew, business, profile, gamble, bank
+  // Row 2: trafficking, bank, business, profile, gamble
   const row2 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId('panel_crew')
-      .setLabel('👥 Crew')
+      .setCustomId('panel_traffic')
+      .setLabel('🚬 Trafficking')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('panel_bank')
+      .setLabel('🏦 Bank')
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('panel_business')
@@ -96,16 +100,20 @@ function renderHome(player) {
       .setLabel('👤 Profile')
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
-      .setCustomId('panel_bank')
-      .setLabel('🏦 Bank')
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
       .setCustomId('panel_gamble')
       .setLabel('🎰 Gamble')
       .setStyle(ButtonStyle.Secondary)
   );
 
-  return { embeds: [embed], components: [row1, row2] };
+  // Row 3: crew
+  const row3 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('panel_crew')
+      .setLabel('👥 Crew')
+      .setStyle(ButtonStyle.Secondary)
+  );
+
+  return { embeds: [embed], components: [row1, row2, row3] };
 }
 
 module.exports = { renderHome };
