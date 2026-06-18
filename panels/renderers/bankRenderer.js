@@ -49,7 +49,7 @@ function renderBankHome(player, bankLimit) {
     )
   );
 
-  // Row 3: Bulk + transfer + home
+  // Row 3: Bulk + transfer
   const row3 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('panel_bank_withdraw_all')
@@ -65,18 +65,18 @@ function renderBankHome(player, bankLimit) {
       .setCustomId('panel_bank_transfer')
       .setLabel('💸 Transfer')
       .setStyle(ButtonStyle.Secondary)
-      .setDisabled(cash <= 0),
-    new ButtonBuilder()
-      .setCustomId('panel_home')
-      .setLabel('🏠 Home')
-      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(cash <= 0)
   );
 
-  // Row 4: Custom on its own
+  // Row 4: Custom + Home
   const row4 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('panel_bank_custom')
       .setLabel('✏️ Custom Amount')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('panel_home')
+      .setLabel('🏠 Home')
       .setStyle(ButtonStyle.Secondary)
   );
 

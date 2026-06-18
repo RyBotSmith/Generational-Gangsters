@@ -578,9 +578,14 @@ async function raid(serverId, discordId) {
   };
 }
 
+async function getAllSlots(serverId) {
+  return businessRepository.getAllSlots(serverId);
+}
+
 module.exports = {
   initSlots,
   getBusinessState,
+  getAllSlots,
   claim,
   collect,
   upgrade,
