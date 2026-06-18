@@ -24,7 +24,7 @@ function renderProfileHome(player) {
   const weapon   = inv.equippedWeapon   ? WEAPONS[inv.equippedWeapon.id]   ?? null : null;
   const armour   = inv.equippedArmour   ? ARMOUR[inv.equippedArmour.id]    ?? null : null;
   const headwear = inv.equippedHeadwear ? ARMOUR[inv.equippedHeadwear.id]  ?? null : null;
-  const vehicle  = inv.equippedVehicle  ? VEHICLES[inv.equippedVehicle]    ?? null : null;
+  const vehicle  = inv.equippedVehicle  ? VEHICLES[inv.equippedVehicle.id]  ?? null : null;
 
   // ── Effective bonuses ─────────────────────
   const weaponReduction  = weapon   ? Math.round(weapon.reduction  * 100) : 0;

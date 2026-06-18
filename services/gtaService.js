@@ -7,6 +7,8 @@
 const {
   CARS,
   RANKS,
+  WEAPONS,
+  VEHICLES,
   GTA_COOLDOWN,
   GTA_BASE_RATE,
   GTA_MAX_RATE,
@@ -39,10 +41,12 @@ function getCrewBonuses(crew) {
 
 function getGtaItemBonus(player) {
   let bonus = 0;
-  const weapon  = player.inventory?.equippedWeapon;
-  if (weapon?.gtaBonus) bonus += weapon.gtaBonus;
-  const vehicle = player.inventory?.equippedVehicle;
-  if (vehicle?.gtaBonus) bonus += vehicle.gtaBonus;
+  const weaponEntry  = player.inventory?.equippedWeapon;
+  const vehicleEntry = player.inventory?.equippedVehicle;
+  const weaponDef    = weaponEntry  ? WEAPONS[weaponEntry.id]   : null;
+  const vehicleDef   = vehicleEntry ? VEHICLES[vehicleEntry.id] : null;
+  if (weaponDef?.gtaBonus)  bonus += weaponDef.gtaBonus;
+  if (vehicleDef?.gtaBonus) bonus += vehicleDef.gtaBonus;
   return bonus;
 }
 

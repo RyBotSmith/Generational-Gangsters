@@ -7,6 +7,8 @@
 const {
   CRIMES,
   RANKS,
+  WEAPONS,
+  VEHICLES,
   CRIME_JAIL_CHANCE,
   CREW_UPGRADES,
   ACTION_TYPES,
@@ -37,12 +39,12 @@ function getCrewBonuses(crew) {
  */
 function getItemBonus(player) {
   let bonus = 0;
-  // weapon
-  const weapon = player.inventory?.equippedWeapon;
-  if (weapon?.crimeBonus) bonus += weapon.crimeBonus;
-  // vehicle
-  const vehicle = player.inventory?.equippedVehicle;
-  if (vehicle?.crimeBonus) bonus += vehicle.crimeBonus;
+  const weaponEntry  = player.inventory?.equippedWeapon;
+  const vehicleEntry = player.inventory?.equippedVehicle;
+  const weaponDef    = weaponEntry  ? WEAPONS[weaponEntry.id]   : null;
+  const vehicleDef   = vehicleEntry ? VEHICLES[vehicleEntry.id] : null;
+  if (weaponDef?.crimeBonus)  bonus += weaponDef.crimeBonus;
+  if (vehicleDef?.crimeBonus) bonus += vehicleDef.crimeBonus;
   return bonus;
 }
 
