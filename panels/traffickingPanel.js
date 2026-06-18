@@ -48,9 +48,12 @@ async function handle(interaction) {
   if (customId.startsWith('panel_traffic_buy_')) {
     const rest      = customId.replace('panel_traffic_buy_', '');
     const parts     = rest.split('_');
-    const qty       = parseInt(parts[parts.length - 1], 10);
+    const qtyStr    = parts[parts.length - 1];
     const productId = parts.slice(0, parts.length - 1).join('_');
     await interaction.deferUpdate();
+
+    // 'max' means buy as much as possible — pass a large number, service caps at capacity
+    const qty = qtyStr === 'max' ? 9999 : parseInt(qtyStr, 10);
 
     const result = await traffickingService.buy(serverId, discordId, productId, qty);
 

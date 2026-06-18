@@ -9,6 +9,32 @@ const { formatCash, isJailed, isHospitalized, isTravelling, relativeTimestamp } 
 const { RANKS } = require('../../data/constants');
 const { getRankIndex } = require('../../utils/helpers');
 
+// ── Rank colours ──────────────────────────────
+const RANK_COLOURS = [
+  0x808080,  // 0  Hobo — grey
+  0x8B4513,  // 1  Petty Criminal — brown
+  0xFFA500,  // 2  Street Thug — orange
+  0xFFD700,  // 3  Gangster — gold
+  0xFF4500,  // 4  Hitman — red-orange
+  0xDC143C,  // 5  Assassin — crimson
+  0x9400D3,  // 6  Underboss — purple
+  0x0000FF,  // 7  Boss — blue
+  0x00CED1,  // 8  Godfather — teal
+  0xFFD700,  // 9  Infamous Gangster — bright gold
+];
+
+// Prestige overrides rank colour when prestiged
+const PRESTIGE_COLOURS = [
+  null,      // 0  no prestige — use rank colour
+  0xf39c12,  // 1  gold
+  0xe67e22,  // 2  orange
+  0xe74c3c,  // 3  red
+  0x9b59b6,  // 4  purple
+  0x00d4ff,  // 5  electric blue
+];
+
+const PRESTIGE_BADGES = ['', '⭐', '⭐⭐', '⭐⭐⭐', '💜', '💠'];
+
 /**
  * Build the home panel embed + nav buttons.
  * @param {object} player  — full player document
@@ -17,33 +43,48 @@ function renderHome(player) {
   const rankIdx  = getRankIndex(player.xp ?? 0, RANKS);
   const rank     = RANKS[rankIdx];
   const nextRank = RANKS[rankIdx + 1] ?? null;
+  const prestige = player.prestige ?? 0;
+
+  // Colour — prestige overrides rank
+  const colour = PRESTIGE_COLOURS[prestige] ?? RANK_COLOURS[rankIdx] ?? embeds.COLOURS.dark;
+
+  // Title badge
+  const badge = PRESTIGE_BADGES[prestige] ?? '';
+  const title = badge
+    ? `${badge} ${player.username ?? 'Gangster'}'s HQ`
+    : `🏠 ${player.username ?? 'Gangster'}'s HQ`;
 
   // Status line
   let statusLine = '🟢 Active';
-  if (isJailed(player))        statusLine = `🔒 In Jail — free ${relativeTimestamp(player.jailedUntil)}`;
-  else if (isHospitalized(player)) statusLine = `💀 In Hospital — back ${relativeTimestamp(player.hospitalizedUntil)}`;
-  else if (isTravelling(player))   statusLine = `✈️ Travelling — arrives ${relativeTimestamp(player.travelEndTime)}`;
+  if (isJailed(player))             statusLine = `🔒 In Jail — free ${relativeTimestamp(player.jailedUntil)}`;
+  else if (isHospitalized(player))  statusLine = `💀 In Hospital — back ${relativeTimestamp(player.hospitalizedUntil)}`;
+  else if (isTravelling(player))    statusLine = `✈️ Travelling — arrives ${relativeTimestamp(player.travelEndTime)}`;
 
-  // XP progress bar (10 segments) with numbers
+  // Prestige banner — shown prominently when prestiged
+  const prestigeBanner = prestige > 0
+    ? `\n${PRESTIGE_BADGES[prestige]} **PRESTIGE ${prestige}** ${PRESTIGE_BADGES[prestige]}`
+    : '';
+
+  // XP progress bar with numbers
   let progressStr = '';
   if (nextRank) {
-    const xpIntoRank  = (player.xp ?? 0) - rank.minXP;
-    const xpNeeded    = nextRank.minXP - rank.minXP;
-    const progress    = xpIntoRank / xpNeeded;
-    const filled      = Math.round(progress * 10);
+    const xpIntoRank = (player.xp ?? 0) - rank.minXP;
+    const xpNeeded   = nextRank.minXP - rank.minXP;
+    const progress   = xpIntoRank / xpNeeded;
+    const filled     = Math.round(progress * 10);
     progressStr = `${'█'.repeat(filled)}${'░'.repeat(10 - filled)} ${Math.floor(progress * 100)}%\n${xpIntoRank.toLocaleString()} / ${xpNeeded.toLocaleString()} XP to **${nextRank.name}**`;
   } else {
     progressStr = '**MAX RANK** — Prestige to continue';
   }
 
   // Bodyguard count
-  const bgs = player.bodyguards ?? {};
+  const bgs    = player.bodyguards ?? {};
   const bgAlive = Object.values(bgs).filter(b => b.alive).length;
   const bgTotal = Object.keys(bgs).length;
 
-  const embed = embeds.base(embeds.COLOURS.dark)
-    .setTitle(`🏠 ${player.username ?? 'Gangster'}'s HQ`)
-    .setDescription(statusLine)
+  const embed = embeds.base(colour)
+    .setTitle(title)
+    .setDescription(statusLine + prestigeBanner)
     .addFields(
       { name: '📍 Location', value: player.state ?? 'Unknown', inline: true },
       { name: '🏅 Rank',     value: `${rank.name} (#${rankIdx})`, inline: true },
@@ -55,7 +96,7 @@ function renderHome(player) {
       { name: '🛡️ Bodyguards', value: `${bgAlive}/${bgTotal} alive`,          inline: true },
       { name: '📈 Progress', value: progressStr }
     )
-    .setFooter({ text: `Prestige ${player.prestige ?? 0} · Generational Gangsters` });
+    .setFooter({ text: prestige > 0 ? `${PRESTIGE_BADGES[prestige]} Prestige ${prestige} · ${rank.name} · Generational Gangsters` : `${rank.name} · Generational Gangsters` });
 
   // Nav buttons — row 1: core actions
   const row1 = new ActionRowBuilder().addComponents(

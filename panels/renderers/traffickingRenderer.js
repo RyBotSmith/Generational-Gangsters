@@ -110,7 +110,7 @@ function renderBoozePanel(data) {
       const maxCost = (prices?.buy ?? 0) * space;
       row.addComponents(
         new ButtonBuilder()
-          .setCustomId(`panel_traffic_buy_${product.id}_${space}`)
+          .setCustomId(`panel_traffic_buy_${product.id}_max`)
           .setLabel(`Max (${space}) — ${formatCash(maxCost)}`)
           .setStyle(ButtonStyle.Primary)
           .setDisabled(onBuyCooldown || (player.cash ?? 0) < maxCost)
@@ -221,7 +221,7 @@ function renderDrugsPanel(data) {
       const maxCost = (prices?.buy ?? 0) * space;
       row.addComponents(
         new ButtonBuilder()
-          .setCustomId(`panel_traffic_buy_${product.id}_${space}`)
+          .setCustomId(`panel_traffic_buy_${product.id}_max`)
           .setLabel(`Max (${space}) — ${formatCash(maxCost)}`)
           .setStyle(ButtonStyle.Primary)
           .setDisabled(onBuyCooldown || (player.cash ?? 0) < maxCost)
