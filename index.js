@@ -84,6 +84,8 @@ const BUTTON_SELECT_ROUTES = {
   'panel_upgrade_buy_': (i) => profilePanel.handle(i),
   'panel_stats':        (i) => profilePanel.handle(i),
   'panel_inventory':    (i) => profilePanel.handle(i),
+  'panel_inv_equip_':   (i) => profilePanel.handle(i),
+  'panel_inv_unequip_': (i) => profilePanel.handle(i),
   'panel_prestige':     (i) => profilePanel.handle(i),
 
   // ── Mobile panels (panelm_) ───────────────
