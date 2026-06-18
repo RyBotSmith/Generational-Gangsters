@@ -76,7 +76,7 @@ function renderBankHome(player, bankLimit) {
       .setStyle(ButtonStyle.Secondary)
   );
 
-  return { embeds: [embed], components: [row1, row2, row3] };
+  return { embeds: [embed], components: [row3, row1, row2] };
 }
 
 // ── Transfer player select ────────────────────
