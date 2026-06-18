@@ -87,38 +87,26 @@ function renderBoozePanel(data) {
 
   const rows = [];
 
-  // Buy buttons for each product
-  for (const product of unlockedBooze) {
-    const prices  = statePrices?.booze?.[product.id];
-    const space   = boozeCapacity - boozeCarried;
-    const canBuy  = space > 0 && (player.cash ?? 0) >= (prices?.buy ?? 0);
-    const row     = new ActionRowBuilder();
+  const { StringSelectMenuBuilder } = require('discord.js');
+  const boozeOptions = unlockedBooze.map(p => {
+    const prices = statePrices?.booze?.[p.id];
+    const owned  = booze[p.id] ?? 0;
+    return {
+      label: p.name,
+      description: `Buy: ${formatCash(prices?.buy ?? 0)} | Sell: ${formatCash(prices?.sell ?? 0)} | Owned: ${owned}`,
+      value: p.id,
+    };
+  });
 
-    BUY_PRESETS.forEach(qty => {
-      const cost = (prices?.buy ?? 0) * qty;
-      row.addComponents(
-        new ButtonBuilder()
-          .setCustomId(`panel_traffic_buy_${product.id}_${qty}`)
-          .setLabel(`Buy ${qty} (${formatCash(cost)})`)
-          .setStyle(ButtonStyle.Success)
-          .setDisabled(onBuyCooldown || !canBuy || qty > space || (player.cash ?? 0) < cost)
-      );
-    });
-
-    // Max button
-    if (space > 0) {
-      const maxCost = (prices?.buy ?? 0) * space;
-      row.addComponents(
-        new ButtonBuilder()
-          .setCustomId(`panel_traffic_buy_${product.id}_max`)
-          .setLabel(`Max (${space}) — ${formatCash(maxCost)}`)
-          .setStyle(ButtonStyle.Primary)
-          .setDisabled(onBuyCooldown || (player.cash ?? 0) < maxCost)
-      );
-    }
-
-    rows.push(row);
-  }
+  rows.push(
+    new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId('select_traffic_booze')
+        .setPlaceholder('Select a booze to buy...')
+        .addOptions(boozeOptions)
+        .setDisabled(onBuyCooldown || (boozeCapacity - boozeCarried) <= 0)
+    )
+  );
 
   // Sell + back row
   const sellRow = new ActionRowBuilder().addComponents(
@@ -201,35 +189,27 @@ function renderDrugsPanel(data) {
 
   const rows = [];
 
-  for (const product of unlockedDrugs) {
-    const prices  = statePrices?.drugs?.[product.id];
-    const space   = drugCapacity - drugsCarried;
-    const row     = new ActionRowBuilder();
+  // Dropdown to select which drug to buy
+  const { StringSelectMenuBuilder } = require('discord.js');
+  const drugOptions = unlockedDrugs.map(p => {
+    const prices = statePrices?.drugs?.[p.id];
+    const owned  = drugs[p.id] ?? 0;
+    return {
+      label: p.name,
+      description: `Buy: ${formatCash(prices?.buy ?? 0)} | Sell: ${formatCash(prices?.sell ?? 0)} | Owned: ${owned}`,
+      value: p.id,
+    };
+  });
 
-    BUY_PRESETS.forEach(qty => {
-      const cost = (prices?.buy ?? 0) * qty;
-      row.addComponents(
-        new ButtonBuilder()
-          .setCustomId(`panel_traffic_buy_${product.id}_${qty}`)
-          .setLabel(`Buy ${qty} (${formatCash(cost)})`)
-          .setStyle(ButtonStyle.Danger)
-          .setDisabled(onBuyCooldown || qty > space || (player.cash ?? 0) < cost)
-      );
-    });
-
-    if (space > 0) {
-      const maxCost = (prices?.buy ?? 0) * space;
-      row.addComponents(
-        new ButtonBuilder()
-          .setCustomId(`panel_traffic_buy_${product.id}_max`)
-          .setLabel(`Max (${space}) — ${formatCash(maxCost)}`)
-          .setStyle(ButtonStyle.Primary)
-          .setDisabled(onBuyCooldown || (player.cash ?? 0) < maxCost)
-      );
-    }
-
-    rows.push(row);
-  }
+  rows.push(
+    new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId('select_traffic_drug')
+        .setPlaceholder('Select a drug to buy...')
+        .addOptions(drugOptions)
+        .setDisabled(onBuyCooldown || (drugCapacity - drugsCarried) <= 0)
+    )
+  );
 
   const sellRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -251,7 +231,78 @@ function renderDrugsPanel(data) {
   return { embeds: [embed], components: rows };
 }
 
-// ── Result renderer ───────────────────────────
+// ── Buy amount panel (after selecting product) ────
+
+/**
+ * Shown after player selects a product from dropdown.
+ * Shows buy amount buttons for that specific product.
+ */
+function renderBuyAmountPanel(data, productId, type) {
+  const { player, statePrices, boozeCapacity, drugCapacity, boozeCarried, drugsCarried, inventory } = data;
+  const { PRODUCTS } = require('../services/traffickingService');
+  const product  = PRODUCTS[type]?.[productId];
+  const prices   = statePrices?.[type]?.[productId];
+  const capacity = type === 'booze' ? boozeCapacity : drugCapacity;
+  const carried  = type === 'booze' ? boozeCarried  : drugsCarried;
+  const space    = capacity - carried;
+  const inv      = type === 'booze' ? (inventory.booze ?? {}) : (inventory.drugs ?? {});
+  const owned    = inv[productId] ?? 0;
+  const cooldownUntil = type === 'booze'
+    ? (player.cooldowns?.booze_buy ?? 0)
+    : (player.cooldowns?.drug_buy  ?? 0);
+  const onCooldown = Date.now() < cooldownUntil;
+
+  const embed = embeds.base(type === 'booze' ? embeds.COLOURS.info : embeds.COLOURS.warning)
+    .setTitle(`${type === 'booze' ? '🍺' : '💊'} Buy ${product?.name ?? productId}`)
+    .setDescription(
+      `📍 **${player.state}**\n\n` +
+      `💰 Buy price: **${formatCash(prices?.buy ?? 0)}/unit**\n` +
+      `💵 Sell price: **${formatCash(prices?.sell ?? 0)}/unit**\n` +
+      `📦 Owned: **${owned}** | Space: **${space}/${capacity}**\n` +
+      `💰 Your cash: **${formatCash(player.cash ?? 0)}**` +
+      (onCooldown ? `\n⏳ Buy cooldown — can buy again <t:${Math.floor(cooldownUntil / 1000)}:R>` : '')
+    );
+
+  const buyRow = new ActionRowBuilder();
+  BUY_PRESETS.forEach(qty => {
+    const cost = (prices?.buy ?? 0) * qty;
+    buyRow.addComponents(
+      new ButtonBuilder()
+        .setCustomId(`panel_traffic_buy_${productId}_${qty}`)
+        .setLabel(`${qty} — ${formatCash(cost)}`)
+        .setStyle(type === 'booze' ? ButtonStyle.Success : ButtonStyle.Danger)
+        .setDisabled(onCooldown || qty > space || (player.cash ?? 0) < cost)
+    );
+  });
+
+  if (space > 0) {
+    const maxCost = (prices?.buy ?? 0) * space;
+    buyRow.addComponents(
+      new ButtonBuilder()
+        .setCustomId(`panel_traffic_buy_${productId}_max`)
+        .setLabel(`Max (${space}) — ${formatCash(maxCost)}`)
+        .setStyle(ButtonStyle.Primary)
+        .setDisabled(onCooldown || (player.cash ?? 0) < maxCost)
+    );
+  }
+
+  const backCustomId = type === 'booze' ? 'panel_traffic_booze' : 'panel_traffic_drugs';
+
+  const backRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(backCustomId)
+      .setLabel('⬅ Back')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('panel_home')
+      .setLabel('🏠 Home')
+      .setStyle(ButtonStyle.Secondary)
+  );
+
+  return { embeds: [embed], components: [buyRow, backRow] };
+}
+
+
 
 function renderTraffickingResult(result, backTo = 'panel_traffic') {
   const embed = result.success
@@ -276,5 +327,6 @@ module.exports = {
   renderTraffickingHome,
   renderBoozePanel,
   renderDrugsPanel,
+  renderBuyAmountPanel,
   renderTraffickingResult,
 };

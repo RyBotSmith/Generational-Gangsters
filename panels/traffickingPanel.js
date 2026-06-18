@@ -9,6 +9,7 @@ const {
   renderTraffickingHome,
   renderBoozePanel,
   renderDrugsPanel,
+  renderBuyAmountPanel,
   renderTraffickingResult,
 } = require('./renderers/traffickingRenderer');
 const embeds = require('../utils/embeds');
@@ -94,7 +95,29 @@ async function handleModal(interaction) {
 }
 
 async function handleSelect(interaction) {
-  console.warn('[traffickingPanel] Unexpected select:', interaction.customId);
+  const { customId } = interaction;
+  const serverId     = interaction.guildId;
+  const discordId    = interaction.user.id;
+
+  // ── select_traffic_booze — chose a booze product ──
+  if (customId === 'select_traffic_booze') {
+    const productId = interaction.values[0];
+    await interaction.deferUpdate();
+    const result = await traffickingService.getTraffickingState(serverId, discordId);
+    if (!result.success) return interaction.editReply({ embeds: [], components: [] });
+    return interaction.editReply(renderBuyAmountPanel(result.data, productId, 'booze'));
+  }
+
+  // ── select_traffic_drug — chose a drug product ──
+  if (customId === 'select_traffic_drug') {
+    const productId = interaction.values[0];
+    await interaction.deferUpdate();
+    const result = await traffickingService.getTraffickingState(serverId, discordId);
+    if (!result.success) return interaction.editReply({ embeds: [], components: [] });
+    return interaction.editReply(renderBuyAmountPanel(result.data, productId, 'drugs'));
+  }
+
+  console.warn('[traffickingPanel] Unexpected select:', customId);
 }
 
 module.exports = { handle, handleModal, handleSelect };
