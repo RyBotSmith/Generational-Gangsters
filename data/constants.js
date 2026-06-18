@@ -582,7 +582,53 @@ const MEDICAL_ITEMS = {
   },
 };
 
-// ── UPGRADES (permanent player upgrades) ─────
+// ── SHOP STATE POOLS ─────────────────────────
+// Defines which items CAN appear in each state's weekly rotation.
+// Weekly rotation picks from these pools randomly.
+// Consumables are available everywhere always.
+// Vehicles only in 3 states (randomly rotated weekly).
+
+const SHOP_POOLS = {
+  weapons: {
+    'New York':    ['flip_knife', 'machete', 'pistol'],
+    'Miami':       ['pistol', 'uzi', 'p90'],
+    'Chicago':     ['machete', 'thompson', 'ak47'],
+    'Detroit':     ['flip_knife', 'uzi', 'thompson'],
+    'Los Angeles': ['p90', 'ak47', 'm16'],
+    'Las Vegas':   ['pistol', 'm16', 'l115'],
+  },
+  armour: {
+    'New York':    ['leather_jacket', 'vest'],
+    'Miami':       ['vest', 'mil_vest'],
+    'Chicago':     ['leather_jacket', 'mil_vest'],
+    'Detroit':     ['leather_jacket', 'vest'],
+    'Los Angeles': ['mil_vest', 'specvest'],
+    'Las Vegas':   ['vest', 'specvest'],
+  },
+  headwear: {
+    'New York':    ['baseball_cap', 'helmet'],
+    'Miami':       ['baseball_cap', 'ballistic_helmet'],
+    'Chicago':     ['helmet', 'ballistic_helmet'],
+    'Detroit':     ['baseball_cap', 'helmet'],
+    'Los Angeles': ['helmet', 'ballistic_helmet'],
+    'Las Vegas':   ['baseball_cap', 'ballistic_helmet'],
+  },
+  // Vehicles rotate — only 3 states get vehicles each week
+  // The weekly generator picks 3 states and assigns vehicle pools
+  vehicles: {
+    pool: ['bicycle', 'scooter', 'getaway_car', 'motorbike', 'super_motorbike', 'armoured_van'],
+    statesCount: 3, // how many states get vehicles each week
+    // State with most vehicles gets 2, others get 1
+    bonusState: true,
+  },
+  consumables: ['med_kit', 'first_aid_kit'], // always available everywhere
+};
+
+// Shop config Firestore path: servers/{serverId}/config/shop
+// Regenerated weekly on Monday midnight UTC.
+// Shape: { generatedAt, weekKey, states: { [stateName]: { weapons, armour, headwear, vehicles, consumables } } }
+
+
 const UPGRADES = {
   bank_vault: {
     id: 'bank_vault',
@@ -703,6 +749,7 @@ module.exports = {
   ARMOUR,
   VEHICLES,
   UPGRADES,
+  SHOP_POOLS,
   RANK_KILL_BULLETS,
   BODYGUARD_KILL_BULLETS,
   DEATH_CASH_LOSS_PCT,

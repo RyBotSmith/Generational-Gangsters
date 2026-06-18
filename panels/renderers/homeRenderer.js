@@ -76,12 +76,12 @@ function renderHome(player) {
       .setLabel('⚔️ Combat')
       .setStyle(ButtonStyle.Danger),
     new ButtonBuilder()
-      .setCustomId('panel_gamble')
-      .setLabel('🎰 Gamble')
+      .setCustomId('panel_shop')
+      .setLabel('🛒 Shop')
       .setStyle(ButtonStyle.Success)
   );
 
-  // Row 2: crew, business, profile
+  // Row 2: crew, business, profile, gamble
   const row2 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('panel_crew')
@@ -94,6 +94,10 @@ function renderHome(player) {
     new ButtonBuilder()
       .setCustomId('panel_profile')
       .setLabel('👤 Profile')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('panel_gamble')
+      .setLabel('🎰 Gamble')
       .setStyle(ButtonStyle.Secondary)
   );
 

@@ -137,15 +137,27 @@ function defaultPlayer(discordId, username, serverId) {
 
     // ── Inventory ─────────────────────────────
     inventory: {
-      weapon: null,             // { id, shotsUsed, killsUsed } or null
-      armour: null,             // { id, shotsAbsorbed, deathsSurvived } or null
-      headwear: null,           // { id, shotsAbsorbed, deathsSurvived } or null
-      vehicle: null,            // carId string or null (active vehicle)
-      garage: [],               // array of carId strings (stored cars)
+      // ── Equipped (active — used for bonuses/combat) ──
+      equippedWeapon:   null,   // { id, shotsUsed, killsUsed }
+      equippedArmour:   null,   // { id, shotsAbsorbed, deathsSurvived }
+      equippedHeadwear: null,   // { id, shotsAbsorbed, deathsSurvived }
+      equippedVehicle:  null,   // { id }
+
+      // ── Owned but unequipped ─────────────────
+      ownedWeapons:     [],     // [{ id, shotsUsed, killsUsed }]
+      ownedArmour:      [],     // [{ id, shotsAbsorbed, deathsSurvived }]
+      ownedHeadwear:    [],     // [{ id, shotsAbsorbed, deathsSurvived }]
+      ownedVehicles:    [],     // [{ id }]
+
+      // ── Consumables ──────────────────────────
+      medKits:      0,
+      firstAidKits: 0,
+
+      // ── Trafficking ──────────────────────────
       booze: {
         beer: 0,                // cases
         spirits: 0,             // cases
-        boughtInState: null,    // state name — must sell in different state
+        boughtInState: null,    // must sell in different state
       },
       drugs: {
         weed: 0,
@@ -154,8 +166,6 @@ function defaultPlayer(discordId, username, serverId) {
         heroin: 0,
         boughtInState: null,
       },
-      medKits: 0,
-      firstAidKits: 0,
     },
 
     // ── Combat: Intel System ───────────────────
