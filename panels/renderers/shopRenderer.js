@@ -18,18 +18,20 @@ const { WEAPONS, ARMOUR, VEHICLES, MEDICAL_ITEMS } = require('../../data/constan
  */
 function renderShopHome(state, stateShop, playerCash) {
   const hasVehicles = stateShop.vehicles?.length > 0;
+  const cash = typeof playerCash === 'number' ? playerCash : 0;
 
   const embed = embeds.base(embeds.COLOURS.gold)
     .setTitle(`🛒 ${state} — Black Market`)
     .setDescription(
-      `💰 **Your cash:** ${formatCash(playerCash)}\n\n` +
-      `This week's stock refreshes every Monday. What are you looking for?`
+      `💰 **Your cash:** ${formatCash(cash)}\n\n` +
+      `Stock refreshes every Monday. What are you looking for?`
     )
     .addFields(
-      { name: '🔫 Weapons',    value: stateShop.weapons?.length  > 0 ? `${stateShop.weapons.length} available`  : 'None this week', inline: true },
-      { name: '🛡️ Armour',    value: stateShop.armour?.length   > 0 ? `${stateShop.armour.length} available`   : 'None this week', inline: true },
-      { name: '🪖 Headwear',   value: stateShop.headwear?.length > 0 ? `${stateShop.headwear.length} available` : 'None this week', inline: true },
-      { name: '🚗 Vehicles',   value: hasVehicles ? `${stateShop.vehicles.length} available` : 'Not available here this week', inline: true },
+      { name: '🔫 Weapons',     value: stateShop.weapons?.length  > 0 ? `${stateShop.weapons.length} available`  : 'None this week', inline: true },
+      { name: '🚗 Vehicles',    value: hasVehicles ? `${stateShop.vehicles.length} available` : 'Not here this week', inline: true },
+      { name: '\u200b',         value: '\u200b', inline: true }, // spacer
+      { name: '🛡️ Armour',     value: stateShop.armour?.length   > 0 ? `${stateShop.armour.length} available`   : 'None this week', inline: true },
+      { name: '🪖 Headwear',    value: stateShop.headwear?.length > 0 ? `${stateShop.headwear.length} available` : 'None this week', inline: true },
       { name: '💊 Consumables', value: '2 available', inline: true },
     );
 
@@ -85,8 +87,9 @@ function renderItemList(category, itemIds, playerCash) {
     const def = WEAPONS[id] ?? ARMOUR[id] ?? VEHICLES[id] ?? MEDICAL_ITEMS[id];
     if (!def) return null;
 
-    const canAfford = playerCash >= def.cost;
-    const sellPrice = Math.floor(def.cost * 0.5);
+    const cost      = def.cost ?? 0;
+    const canAfford = playerCash >= cost;
+    const sellPrice = Math.floor(cost * 0.5);
 
     let bonus = '';
     if (def.reduction)   bonus += ` • -${Math.round(def.reduction * 100)}% bullets`;
@@ -122,7 +125,7 @@ function renderItemList(category, itemIds, playerCash) {
         .setCustomId(`panel_shop_buy_${id}`)
         .setLabel(`Buy ${def.name}`)
         .setStyle(ButtonStyle.Success)
-        .setDisabled(playerCash < def.cost)
+        .setDisabled(playerCash < (def.cost ?? 0))
     );
     count++;
   }

@@ -266,46 +266,55 @@ const CARS = {
 const WEAPONS = {
   flip_knife: {
     id: 'flip_knife', name: 'Flip Knife',
+    cost: 1500,
     reduction: 0.10, crimeBonus: 0.02, gtaBonus: 0,
     durabilityShots: 15, durabilityKills: 5,
   },
   machete: {
     id: 'machete', name: 'Machete',
+    cost: 4000,
     reduction: 0.18, crimeBonus: 0.03, gtaBonus: 0,
     durabilityShots: 15, durabilityKills: 5,
   },
   pistol: {
     id: 'pistol', name: 'Pistol',
+    cost: 8000,
     reduction: 0.25, crimeBonus: 0.04, gtaBonus: 0.02,
     durabilityShots: 15, durabilityKills: 5,
   },
   uzi: {
     id: 'uzi', name: 'Uzi',
+    cost: 25000,
     reduction: 0.40, crimeBonus: 0.05, gtaBonus: 0.03,
     durabilityShots: 15, durabilityKills: 5,
   },
   p90: {
     id: 'p90', name: 'P90',
+    cost: 28000,
     reduction: 0.40, crimeBonus: 0.05, gtaBonus: 0.03,
     durabilityShots: 15, durabilityKills: 5,
   },
   thompson: {
     id: 'thompson', name: 'Thompson',
+    cost: 35000,
     reduction: 0.47, crimeBonus: 0.06, gtaBonus: 0.04,
     durabilityShots: 15, durabilityKills: 5,
   },
   ak47: {
     id: 'ak47', name: 'AK-47',
+    cost: 75000,
     reduction: 0.55, crimeBonus: 0.07, gtaBonus: 0.05,
     durabilityShots: 15, durabilityKills: 5,
   },
   m16: {
     id: 'm16', name: 'M16',
+    cost: 78000,
     reduction: 0.55, crimeBonus: 0.07, gtaBonus: 0.05,
     durabilityShots: 15, durabilityKills: 5,
   },
   l115: {
     id: 'l115', name: 'L115 Sniper',
+    cost: 400000,
     reduction: 0.70, crimeBonus: 0.08, gtaBonus: 0,
     durabilityShots: 15, durabilityKills: 5,
   },
@@ -316,36 +325,43 @@ const WEAPONS = {
 const ARMOUR = {
   leather_jacket: {
     id: 'leather_jacket', name: 'Leather Jacket',
+    cost: 5000,
     slot: 'armour', armorBonus: 0.10,
     durabilityShots: 15, durabilityDeaths: 2,
   },
   vest: {
     id: 'vest', name: 'Bulletproof Vest',
+    cost: 18000,
     slot: 'armour', armorBonus: 0.25,
     durabilityShots: 15, durabilityDeaths: 2,
   },
   mil_vest: {
     id: 'mil_vest', name: 'Military Vest',
+    cost: 45000,
     slot: 'armour', armorBonus: 0.40,
     durabilityShots: 15, durabilityDeaths: 2,
   },
   specvest: {
     id: 'specvest', name: 'Special Forces Vest',
+    cost: 120000,
     slot: 'armour', armorBonus: 0.60,
     durabilityShots: 15, durabilityDeaths: 2,
   },
   baseball_cap: {
     id: 'baseball_cap', name: 'Baseball Cap',
+    cost: 3000,
     slot: 'headwear', armorBonus: 0.08,
     durabilityShots: 15, durabilityDeaths: 2,
   },
   helmet: {
     id: 'helmet', name: 'Combat Helmet',
+    cost: 22000,
     slot: 'headwear', armorBonus: 0.18,
     durabilityShots: 15, durabilityDeaths: 2,
   },
   ballistic_helmet: {
     id: 'ballistic_helmet', name: 'Ballistic Helmet',
+    cost: 80000,
     slot: 'headwear', armorBonus: 0.35,
     durabilityShots: 15, durabilityDeaths: 2,
   },
