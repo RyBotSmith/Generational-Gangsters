@@ -38,10 +38,10 @@ function getCrewBonuses(crew) {
 function getItemBonus(player) {
   let bonus = 0;
   // weapon
-  const weapon = player.inventory?.weapon;
+  const weapon = player.inventory?.equippedWeapon;
   if (weapon?.crimeBonus) bonus += weapon.crimeBonus;
   // vehicle
-  const vehicle = player.inventory?.vehicle;
+  const vehicle = player.inventory?.equippedVehicle;
   if (vehicle?.crimeBonus) bonus += vehicle.crimeBonus;
   return bonus;
 }

@@ -38,9 +38,9 @@ function getCrewBonuses(crew) {
 
 function getGtaItemBonus(player) {
   let bonus = 0;
-  const weapon  = player.inventory?.weapon;
+  const weapon  = player.inventory?.equippedWeapon;
   if (weapon?.gtaBonus) bonus += weapon.gtaBonus;
-  const vehicle = player.inventory?.vehicle;
+  const vehicle = player.inventory?.equippedVehicle;
   if (vehicle?.gtaBonus) bonus += vehicle.gtaBonus;
   return bonus;
 }

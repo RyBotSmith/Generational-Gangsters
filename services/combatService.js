@@ -50,8 +50,8 @@ function rankName(player) {
  */
 function getArmourBonus(player) {
   let bonus = 0;
-  const armour   = player.inventory?.armour;
-  const headwear = player.inventory?.headwear;
+  const armour   = player.inventory?.equippedArmour;
+  const headwear = player.inventory?.equippedHeadwear;
   if (armour?.id)   bonus += ARMOUR[armour.id]?.armorBonus ?? 0;
   if (headwear?.id) bonus += ARMOUR[headwear.id]?.armorBonus ?? 0;
   return bonus;
@@ -66,7 +66,7 @@ function getArmourBonus(player) {
  * the reduction value itself lives in the WEAPONS definitions table.
  */
 function getWeaponReduction(player) {
-  const weapon = player.inventory?.weapon;
+  const weapon = player.inventory?.equippedWeapon;
   if (!weapon?.id) return 0;
   return WEAPONS[weapon.id]?.reduction ?? 0;
 }
@@ -142,13 +142,13 @@ function getNestedField(obj, path) {
 }
 
 /**
- * Apply weapon durability after a shot. Returns updated inventory.weapon
+ * Apply weapon durability after a shot. Returns updated inventory.equippedWeapon
  * (or null if the weapon broke) plus a flag indicating breakage.
  *
  * Durability: durabilityShots uses, OR durabilityKills player kills — whichever first.
  */
 function applyWeaponDurability(player, wasKill) {
-  const weapon = player.inventory?.weapon;
+  const weapon = player.inventory?.equippedWeapon;
   if (!weapon) return { weapon: null, broke: false };
 
   const shotsUsed = (weapon.shotsUsed ?? 0) + 1;
@@ -255,9 +255,9 @@ function buildIntel(targetPlayer, type, bgSlot) {
       };
       return acc;
     }, {}),
-    weapon:  targetPlayer.inventory?.weapon?.id  ?? null,
-    armour:  targetPlayer.inventory?.armour?.id  ?? null,
-    headwear: targetPlayer.inventory?.headwear?.id ?? null,
+    weapon:  targetPlayer.inventory?.equippedWeapon?.id  ?? null,
+    armour:  targetPlayer.inventory?.equippedArmour?.id  ?? null,
+    headwear: targetPlayer.inventory?.equippedHeadwear?.id ?? null,
   };
 }
 
@@ -766,7 +766,7 @@ async function shootBodyguard(serverId, attacker, victim, bgSlot) {
   };
 
   const { weapon, broke } = applyWeaponDurability(attacker, false);
-  attackerUpdates['inventory.weapon'] = weapon;
+  attackerUpdates['inventory.equippedWeapon'] = weapon;
 
   const victimUpdates = {
     bodyguards: updatedBodyguards,
@@ -846,17 +846,17 @@ async function shootPlayer(serverId, attacker, victim) {
   const victimUpdates = {};
 
   const { weapon: attackerWeapon, broke: weaponBroke } = applyWeaponDurability(attacker, isKill);
-  attackerUpdates['inventory.weapon'] = attackerWeapon;
+  attackerUpdates['inventory.equippedWeapon'] = attackerWeapon;
 
   if (!isKill) {
     // ── Non-lethal hit ───────────────────────
     victimUpdates.health = newHp;
 
     // Armour durability ticks on every hit (not a kill)
-    const { item: newArmour, broke: armourBroke }   = applyArmourDurability(victim.inventory?.armour, false);
-    const { item: newHeadwear, broke: headwearBroke } = applyArmourDurability(victim.inventory?.headwear, false);
-    victimUpdates['inventory.armour']   = newArmour;
-    victimUpdates['inventory.headwear'] = newHeadwear;
+    const { item: newArmour, broke: armourBroke }   = applyArmourDurability(victim.inventory?.equippedArmour, false);
+    const { item: newHeadwear, broke: headwearBroke } = applyArmourDurability(victim.inventory?.equippedHeadwear, false);
+    victimUpdates['inventory.equippedArmour']   = newArmour;
+    victimUpdates['inventory.equippedHeadwear'] = newHeadwear;
 
     await playerRepository.updatePlayer(serverId, attacker.discordId, {
       ...attackerUpdates,
@@ -924,10 +924,10 @@ async function shootPlayer(serverId, attacker, victim) {
   victimUpdates.bullets = victimBullets - bulletsStolen;
 
   // Armour durability ticks as a death for the victim
-  const { item: newArmour, broke: armourBroke }     = applyArmourDurability(victim.inventory?.armour, true);
-  const { item: newHeadwear, broke: headwearBroke } = applyArmourDurability(victim.inventory?.headwear, true);
-  victimUpdates['inventory.armour']   = newArmour;
-  victimUpdates['inventory.headwear'] = newHeadwear;
+  const { item: newArmour, broke: armourBroke }     = applyArmourDurability(victim.inventory?.equippedArmour, true);
+  const { item: newHeadwear, broke: headwearBroke } = applyArmourDurability(victim.inventory?.equippedHeadwear, true);
+  victimUpdates['inventory.equippedArmour']   = newArmour;
+  victimUpdates['inventory.equippedHeadwear'] = newHeadwear;
 
   attackerUpdates.cash    = (attacker.cash ?? 0) + cashStolen;
   attackerUpdates.bullets = attackerUpdates.bullets + bulletsStolen;
