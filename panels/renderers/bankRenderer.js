@@ -3,15 +3,18 @@
 //  Rule: No game logic. No DB access. Embeds only.
 // ─────────────────────────────────────────────
 
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const {
+  ActionRowBuilder, ButtonBuilder, ButtonStyle,
+  StringSelectMenuBuilder, ModalBuilder,
+  TextInputBuilder, TextInputStyle,
+} = require('discord.js');
 const embeds     = require('../../utils/embeds');
 const { formatCash } = require('../../utils/helpers');
 
+const PRESETS = [1000, 5000, 10000, 25000, 50000];
+
 // ── Bank home ─────────────────────────────────
 
-/**
- * Render the bank home panel.
- */
 function renderBankHome(player, bankLimit) {
   const cash = player.cash ?? 0;
   const bank = player.bank ?? 0;
@@ -19,38 +22,95 @@ function renderBankHome(player, bankLimit) {
   const embed = embeds.base(embeds.COLOURS.gold)
     .setTitle('🏦 Bank')
     .addFields(
-      { name: '💰 Cash',       value: formatCash(cash), inline: true },
-      { name: '🏦 Bank',       value: formatCash(bank), inline: true },
+      { name: '💰 Cash',        value: formatCash(cash),      inline: true },
+      { name: '🏦 Bank',        value: formatCash(bank),      inline: true },
       { name: '📊 Vault Limit', value: formatCash(bankLimit), inline: true },
-    )
-    .setDescription('What would you like to do?');
+    );
 
-  const row = new ActionRowBuilder().addComponents(
+  // Row 1: Withdraw presets (green)
+  const row1 = new ActionRowBuilder().addComponents(
+    ...PRESETS.map(amount =>
+      new ButtonBuilder()
+        .setCustomId(`panel_bank_withdraw_${amount}`)
+        .setLabel(`-$${amount >= 1000 ? `${amount / 1000}k` : amount}`)
+        .setStyle(ButtonStyle.Success)
+        .setDisabled(bank < amount)
+    )
+  );
+
+  // Row 2: Deposit presets (red)
+  const row2 = new ActionRowBuilder().addComponents(
+    ...PRESETS.map(amount =>
+      new ButtonBuilder()
+        .setCustomId(`panel_bank_deposit_${amount}`)
+        .setLabel(`+$${amount >= 1000 ? `${amount / 1000}k` : amount}`)
+        .setStyle(ButtonStyle.Danger)
+        .setDisabled(cash < amount)
+    )
+  );
+
+  // Row 3: Bulk + transfer + custom + home
+  const row3 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId('panel_bank_deposit')
-      .setLabel('⬇️ Deposit')
+      .setCustomId('panel_bank_withdraw_all')
+      .setLabel('💚 Withdraw All')
       .setStyle(ButtonStyle.Success)
-      .setDisabled(cash <= 0),
-    new ButtonBuilder()
-      .setCustomId('panel_bank_withdraw')
-      .setLabel('⬆️ Withdraw')
-      .setStyle(ButtonStyle.Primary)
       .setDisabled(bank <= 0),
+    new ButtonBuilder()
+      .setCustomId('panel_bank_deposit_all')
+      .setLabel('❤️ Deposit All')
+      .setStyle(ButtonStyle.Danger)
+      .setDisabled(cash <= 0),
     new ButtonBuilder()
       .setCustomId('panel_bank_transfer')
       .setLabel('💸 Transfer')
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(cash <= 0),
     new ButtonBuilder()
+      .setCustomId('panel_bank_custom')
+      .setLabel('✏️ Custom')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
       .setCustomId('panel_home')
       .setLabel('🏠 Home')
       .setStyle(ButtonStyle.Secondary)
   );
 
-  return { embeds: [embed], components: [row] };
+  return { embeds: [embed], components: [row1, row2, row3] };
 }
 
-// ── Result renderers ──────────────────────────
+// ── Transfer player select ────────────────────
+
+function renderTransferSelect(alivePlayers, playerCash) {
+  const options = alivePlayers.slice(0, 25).map(p => ({
+    label: p.username ?? p.discordId,
+    value: p.discordId,
+  }));
+
+  const embed = embeds.base(embeds.COLOURS.gold)
+    .setTitle('💸 Transfer')
+    .setDescription(
+      `💰 **Your cash:** ${formatCash(playerCash)}\n\nSelect a player to transfer to.`
+    );
+
+  const row1 = new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId('select_bank_transfer_target')
+      .setPlaceholder('Choose a player...')
+      .addOptions(options)
+  );
+
+  const row2 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('panel_bank')
+      .setLabel('⬅ Bank')
+      .setStyle(ButtonStyle.Secondary)
+  );
+
+  return { embeds: [embed], components: [row1, row2] };
+}
+
+// ── Result panel ──────────────────────────────
 
 function renderBankResult(result) {
   const embed = result.success
@@ -60,7 +120,7 @@ function renderBankResult(result) {
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('panel_bank')
-      .setLabel('🏦 Bank')
+      .setLabel('⬅ Bank')
       .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
       .setCustomId('panel_home')
@@ -73,54 +133,36 @@ function renderBankResult(result) {
 
 // ── Modals ────────────────────────────────────
 
-const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder: AR } = require('discord.js');
-
-function depositModal() {
+function customModal() {
   return new ModalBuilder()
-    .setCustomId('modal_bank_deposit')
-    .setTitle('Deposit Cash')
+    .setCustomId('modal_bank_custom')
+    .setTitle('Custom Amount')
     .addComponents(
-      new AR().addComponents(
+      new ActionRowBuilder().addComponents(
         new TextInputBuilder()
-          .setCustomId('amount')
-          .setLabel('Amount to deposit')
+          .setCustomId('action')
+          .setLabel('Action (deposit or withdraw)')
           .setStyle(TextInputStyle.Short)
-          .setPlaceholder('e.g. 50000')
-          .setRequired(true)
-      )
-    );
-}
-
-function withdrawModal() {
-  return new ModalBuilder()
-    .setCustomId('modal_bank_withdraw')
-    .setTitle('Withdraw Cash')
-    .addComponents(
-      new AR().addComponents(
-        new TextInputBuilder()
-          .setCustomId('amount')
-          .setLabel('Amount to withdraw')
-          .setStyle(TextInputStyle.Short)
-          .setPlaceholder('e.g. 50000')
-          .setRequired(true)
-      )
-    );
-}
-
-function transferModal() {
-  return new ModalBuilder()
-    .setCustomId('modal_bank_transfer')
-    .setTitle('Transfer Cash')
-    .addComponents(
-      new AR().addComponents(
-        new TextInputBuilder()
-          .setCustomId('target')
-          .setLabel('Discord ID of recipient')
-          .setStyle(TextInputStyle.Short)
-          .setPlaceholder('e.g. 123456789012345678')
+          .setPlaceholder('deposit')
           .setRequired(true)
       ),
-      new AR().addComponents(
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setCustomId('amount')
+          .setLabel('Amount')
+          .setStyle(TextInputStyle.Short)
+          .setPlaceholder('e.g. 75000')
+          .setRequired(true)
+      )
+    );
+}
+
+function transferAmountModal(targetId, targetName) {
+  return new ModalBuilder()
+    .setCustomId(`modal_bank_transfer_${targetId}`)
+    .setTitle(`Transfer to ${targetName}`)
+    .addComponents(
+      new ActionRowBuilder().addComponents(
         new TextInputBuilder()
           .setCustomId('amount')
           .setLabel('Amount to transfer (+ 5% fee)')
@@ -133,8 +175,8 @@ function transferModal() {
 
 module.exports = {
   renderBankHome,
+  renderTransferSelect,
   renderBankResult,
-  depositModal,
-  withdrawModal,
-  transferModal,
+  customModal,
+  transferAmountModal,
 };
