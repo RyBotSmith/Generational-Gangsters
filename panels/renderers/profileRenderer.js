@@ -21,10 +21,10 @@ function renderProfileHome(player) {
   const upg     = player.upgrades  ?? {};
 
   // ── Equipped items ────────────────────────
-  const weapon   = inv.weapon   ? WEAPONS[inv.weapon.id]   ?? null : null;
-  const armour   = inv.armour   ? ARMOUR[inv.armour.id]    ?? null : null;
-  const headwear = inv.headwear ? ARMOUR[inv.headwear.id]  ?? null : null;
-  const vehicle  = inv.vehicle  ? VEHICLES[inv.vehicle]    ?? null : null;
+  const weapon   = inv.equippedWeapon   ? WEAPONS[inv.equippedWeapon.id]   ?? null : null;
+  const armour   = inv.equippedArmour   ? ARMOUR[inv.equippedArmour.id]    ?? null : null;
+  const headwear = inv.equippedHeadwear ? ARMOUR[inv.equippedHeadwear.id]  ?? null : null;
+  const vehicle  = inv.equippedVehicle  ? VEHICLES[inv.equippedVehicle]    ?? null : null;
 
   // ── Effective bonuses ─────────────────────
   const weaponReduction  = weapon   ? Math.round(weapon.reduction  * 100) : 0;
@@ -53,7 +53,7 @@ function renderProfileHome(player) {
     ? `**${weapon.name}** — -${weaponReduction}% bullets to kill` +
       (weapon.crimeBonus ? ` • +${Math.round(weapon.crimeBonus * 100)}% crime` : '') +
       (weapon.gtaBonus   ? ` • +${Math.round(weapon.gtaBonus   * 100)}% GTA`   : '') +
-      `\n${inv.weapon.shotsUsed ?? 0}/${weapon.durabilityShots} shots • ${inv.weapon.killsUsed ?? 0}/${weapon.durabilityKills} kills`
+      `\n${inv.equippedWeapon.shotsUsed ?? 0}/${weapon.durabilityShots} shots • ${inv.equippedWeapon.killsUsed ?? 0}/${weapon.durabilityKills} kills`
     : '*None equipped*';
 
   const armourStr = [

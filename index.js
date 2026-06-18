@@ -22,6 +22,7 @@ const gtaPanel      = require('./panels/gtaPanel');
 const crewPanel     = require('./panels/crewPanel');
 const combatPanel   = require('./panels/combatPanel');
 const travelPanel   = require('./panels/travelPanel');
+const shopPanel     = require('./panels/shopPanel');
 const businessPanel = require('./panels/businessPanel');
 const gamblingPanel = require('./panels/gamblingPanel');
 const profilePanel  = require('./panels/profilePanel');
@@ -69,17 +70,21 @@ for (const mod of commandModules) {
 
 const BUTTON_SELECT_ROUTES = {
   // ── Standard panels (panel_) ──────────────
-  'panel_crime':    (i) => crimePanel.handle(i),
-  'panel_gta':      (i) => gtaPanel.handle(i),
-  'panel_crew':     (i) => crewPanel.handle(i),
-  'panel_combat':   (i) => combatPanel.handle(i),
-  'panel_travel':   (i) => travelPanel.handle(i),
-  'panel_business': (i) => businessPanel.handle(i),
-  'panel_gamble':   (i) => gamblingPanel.handle(i),
-  'panel_profile':  (i) => profilePanel.handle(i),
-  'panel_upgrades': (i) => profilePanel.handle(i),
+  'panel_crime':        (i) => crimePanel.handle(i),
+  'panel_gta':          (i) => gtaPanel.handle(i),
+  'panel_crew':         (i) => crewPanel.handle(i),
+  'panel_combat':       (i) => combatPanel.handle(i),
+  'panel_travel':       (i) => travelPanel.handle(i),
+  'panel_shop':         (i) => shopPanel.handle(i),
+  'panelm_shop':        (i) => shopPanel.handle(i),
+  'panel_business':     (i) => businessPanel.handle(i),
+  'panel_gamble':       (i) => gamblingPanel.handle(i),
+  'panel_profile':      (i) => profilePanel.handle(i),
+  'panel_upgrades':     (i) => profilePanel.handle(i),
   'panel_upgrade_buy_': (i) => profilePanel.handle(i),
-  'panel_stats':    (i) => profilePanel.handle(i),
+  'panel_stats':        (i) => profilePanel.handle(i),
+  'panel_inventory':    (i) => profilePanel.handle(i),
+  'panel_prestige':     (i) => profilePanel.handle(i),
 
   // ── Mobile panels (panelm_) ───────────────
   'panelm_crime':    (i) => crimePanel.handle(i),
@@ -133,17 +138,19 @@ const SELECT_ROUTES = {
 // ── Router helpers ────────────────────────────
 
 /**
- * Find the first matching route handler for a given customId.
- * Tries exact prefix match first, then falls back to longest-match scan.
+ * Find the matching route handler for a given customId.
+ * Uses longest-prefix match so 'panel_upgrade_buy_' beats 'panel_upgrades'.
  */
 function resolveRoute(customId, routes) {
-  // Direct prefix match
+  let bestMatch = null;
+  let bestLength = 0;
   for (const prefix of Object.keys(routes)) {
-    if (customId.startsWith(prefix)) {
-      return routes[prefix];
+    if (customId.startsWith(prefix) && prefix.length > bestLength) {
+      bestMatch = routes[prefix];
+      bestLength = prefix.length;
     }
   }
-  return null;
+  return bestMatch;
 }
 
 // ── Interaction handler ───────────────────────
