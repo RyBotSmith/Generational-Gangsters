@@ -149,8 +149,8 @@ function defaultPlayer(discordId, username, serverId) {
       ownedHeadwear:    [],     // [{ id, shotsAbsorbed, deathsSurvived }]
       ownedVehicles:    [],     // [{ id }]
 
-      // ── Consumables ──────────────────────────
-      medKits:      0,
+      // ── GTA Garage ───────────────────────────
+      garage: [],               // array of carIds from GTA steals
       firstAidKits: 0,
 
       // ── Trafficking ──────────────────────────

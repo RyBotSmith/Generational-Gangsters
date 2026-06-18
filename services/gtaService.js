@@ -16,6 +16,7 @@ const {
   CREW_UPGRADES,
   ACTION_TYPES,
   PRESTIGE_CRIME_BONUS,
+  UPGRADES,
 } = require('../data/constants');
 
 const playerRepository = require('../repositories/playerRepository');
@@ -172,6 +173,10 @@ async function attemptGTA(serverId, discordId, crew = null) {
       },
     }).catch(() => {});
 
+    const garage     = player.inventory?.garage ?? [];
+    const garageMax  = (UPGRADES.garage_size?.baseValue ?? 5) + (player.upgrades?.garage_size ?? 0) * (UPGRADES.garage_size?.valuePerLevel ?? 2);
+    const garageFull = garage.length >= garageMax;
+
     return {
       success: true,
       message: `You stole a **${car.name}**! What do you want to do with it?`,
@@ -179,8 +184,10 @@ async function attemptGTA(serverId, discordId, crew = null) {
         car,
         xpGained,
         finalRate,
-        // Panel must store carId in customId for melt/sell follow-up
-        pendingCar: car.id,
+        pendingCar:  car.id,
+        garageFull,
+        garageCount: garage.length,
+        garageMax,
       },
       updates,
       log: { actionType: ACTION_TYPES.GTA, actionName: 'gta_attempt' },
@@ -235,7 +242,7 @@ async function attemptGTA(serverId, discordId, crew = null) {
  * @param {string} discordId
  * @param {string} carId
  */
-async function meltCar(serverId, discordId, carId) {
+async function meltCar(serverId, discordId, carId, fromGarage = false) {
   const car = CARS[carId];
   if (!car) {
     return { success: false, message: 'Unknown car.', data: {}, updates: {}, log: null };
@@ -249,9 +256,16 @@ async function meltCar(serverId, discordId, carId) {
   const bulletsEarned = car.meltBullets;
   const updates = {
     bullets: (player.bullets ?? 0) + bulletsEarned,
-    'stats.gtaMelted':       (player.stats?.gtaMelted       ?? 0) + 1,
-    'stats.bulletsFromGta':  (player.stats?.bulletsFromGta  ?? 0) + bulletsEarned,
+    'stats.gtaMelted':      (player.stats?.gtaMelted      ?? 0) + 1,
+    'stats.bulletsFromGta': (player.stats?.bulletsFromGta ?? 0) + bulletsEarned,
   };
+
+  if (fromGarage) {
+    const garage = [...(player.inventory?.garage ?? [])];
+    const idx    = garage.indexOf(carId);
+    if (idx !== -1) garage.splice(idx, 1);
+    updates['inventory.garage'] = garage;
+  }
 
   await playerRepository.updatePlayer(serverId, discordId, updates);
 
@@ -279,7 +293,7 @@ async function meltCar(serverId, discordId, carId) {
  * @param {string} discordId
  * @param {string} carId
  */
-async function sellCar(serverId, discordId, carId) {
+async function sellCar(serverId, discordId, carId, fromGarage = false) {
   const car = CARS[carId];
   if (!car) {
     return { success: false, message: 'Unknown car.', data: {}, updates: {}, log: null };
@@ -293,9 +307,16 @@ async function sellCar(serverId, discordId, carId) {
   const cashEarned = car.value;
   const updates = {
     cash: (player.cash ?? 0) + cashEarned,
-    'stats.gtaSold':      (player.stats?.gtaSold      ?? 0) + 1,
-    'stats.cashFromGta':  (player.stats?.cashFromGta  ?? 0) + cashEarned,
+    'stats.gtaSold':     (player.stats?.gtaSold     ?? 0) + 1,
+    'stats.cashFromGta': (player.stats?.cashFromGta ?? 0) + cashEarned,
   };
+
+  if (fromGarage) {
+    const garage = [...(player.inventory?.garage ?? [])];
+    const idx    = garage.indexOf(carId);
+    if (idx !== -1) garage.splice(idx, 1);
+    updates['inventory.garage'] = garage;
+  }
 
   await playerRepository.updatePlayer(serverId, discordId, updates);
 
@@ -316,4 +337,130 @@ async function sellCar(serverId, discordId, carId) {
   };
 }
 
-module.exports = { attemptGTA, meltCar, sellCar, getUnlockedCars };
+/**
+ * Store a stolen car in the garage.
+ */
+async function storeCar(serverId, discordId, carId) {
+  const car = CARS[carId];
+  if (!car) return { success: false, message: 'Unknown car.', data: {}, updates: {}, log: null };
+
+  const player = await playerRepository.getPlayer(serverId, discordId);
+  if (!player) return { success: false, message: 'Player not found.', data: {}, updates: {}, log: null };
+
+  const garage    = [...(player.inventory?.garage ?? [])];
+  const garageMax = (UPGRADES.garage_size?.baseValue ?? 5) + (player.upgrades?.garage_size ?? 0) * (UPGRADES.garage_size?.valuePerLevel ?? 2);
+
+  if (garage.length >= garageMax) {
+    return {
+      success: false,
+      message: `Your garage is full (${garage.length}/${garageMax}). Melt or sell a car to make space.`,
+      data: { garageFull: true, garageCount: garage.length, garageMax },
+      updates: {},
+      log: null,
+    };
+  }
+
+  garage.push(carId);
+  const updates = { 'inventory.garage': garage };
+  await playerRepository.updatePlayer(serverId, discordId, updates);
+
+  return {
+    success: true,
+    message: `**${car.name}** stored in your garage. (${garage.length}/${garageMax} slots used)`,
+    data: { car, garageCount: garage.length, garageMax },
+    updates,
+    log: null,
+  };
+}
+
+/**
+ * Get garage summary for a player.
+ */
+function getGarage(player) {
+  const garage    = player.inventory?.garage ?? [];
+  const garageMax = (UPGRADES.garage_size?.baseValue ?? 5) + (player.upgrades?.garage_size ?? 0) * (UPGRADES.garage_size?.valuePerLevel ?? 2);
+  const cars      = garage.map(id => CARS[id]).filter(Boolean);
+  const totalValue   = cars.reduce((sum, c) => sum + c.value, 0);
+  const totalBullets = cars.reduce((sum, c) => sum + c.meltBullets, 0);
+  return { cars, garage, garageMax, totalValue, totalBullets };
+}
+
+/**
+ * Melt all cars in garage.
+ */
+async function meltAll(serverId, discordId) {
+  const player = await playerRepository.getPlayer(serverId, discordId);
+  if (!player) return { success: false, message: 'Player not found.', data: {}, updates: {}, log: null };
+
+  const garage = player.inventory?.garage ?? [];
+  if (garage.length === 0) return { success: false, message: 'Your garage is empty.', data: {}, updates: {}, log: null };
+
+  const cars          = garage.map(id => CARS[id]).filter(Boolean);
+  const totalBullets  = cars.reduce((sum, c) => sum + c.meltBullets, 0);
+
+  const updates = {
+    bullets: (player.bullets ?? 0) + totalBullets,
+    'inventory.garage':     [],
+    'stats.gtaMelted':      (player.stats?.gtaMelted      ?? 0) + cars.length,
+    'stats.bulletsFromGta': (player.stats?.bulletsFromGta ?? 0) + totalBullets,
+  };
+
+  await playerRepository.updatePlayer(serverId, discordId, updates);
+
+  logRepository.write(serverId, {
+    discordId,
+    actionType: ACTION_TYPES.GTA,
+    actionName: 'gta_melt_all',
+    location:   player.state,
+    payload:    { count: cars.length, totalBullets },
+  }).catch(() => {});
+
+  return {
+    success: true,
+    message: `Melted **${cars.length} cars** for **${totalBullets} bullets**!`,
+    data: { count: cars.length, totalBullets },
+    updates,
+    log: null,
+  };
+}
+
+/**
+ * Sell all cars in garage.
+ */
+async function sellAll(serverId, discordId) {
+  const player = await playerRepository.getPlayer(serverId, discordId);
+  if (!player) return { success: false, message: 'Player not found.', data: {}, updates: {}, log: null };
+
+  const garage = player.inventory?.garage ?? [];
+  if (garage.length === 0) return { success: false, message: 'Your garage is empty.', data: {}, updates: {}, log: null };
+
+  const cars       = garage.map(id => CARS[id]).filter(Boolean);
+  const totalCash  = cars.reduce((sum, c) => sum + c.value, 0);
+
+  const updates = {
+    cash: (player.cash ?? 0) + totalCash,
+    'inventory.garage':  [],
+    'stats.gtaSold':     (player.stats?.gtaSold     ?? 0) + cars.length,
+    'stats.cashFromGta': (player.stats?.cashFromGta ?? 0) + totalCash,
+  };
+
+  await playerRepository.updatePlayer(serverId, discordId, updates);
+
+  logRepository.write(serverId, {
+    discordId,
+    actionType: ACTION_TYPES.GTA,
+    actionName: 'gta_sell_all',
+    location:   player.state,
+    payload:    { count: cars.length, totalCash },
+  }).catch(() => {});
+
+  return {
+    success: true,
+    message: `Sold **${cars.length} cars** for **$${totalCash.toLocaleString('en-US')}**!`,
+    data: { count: cars.length, totalCash },
+    updates,
+    log: null,
+  };
+}
+
+module.exports = { attemptGTA, meltCar, sellCar, storeCar, meltAll, sellAll, getGarage, getUnlockedCars };

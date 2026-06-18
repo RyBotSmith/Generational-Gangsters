@@ -12,6 +12,9 @@ const {
   renderGtaAttemptResult,
   renderGtaMelted,
   renderGtaSold,
+  renderGtaStored,
+  renderGarageHome,
+  renderGarageCarView,
 } = require('./renderers/gtaRenderer');
 const embeds = require('../utils/embeds');
 
@@ -58,7 +61,8 @@ async function handle(interaction) {
 
     const cdState      = buildCdState(player);
     const unlockedCars = gtaService.getUnlockedCars(player);
-    const payload      = renderGtaHome(cdState, unlockedCars);
+    const garageData   = gtaService.getGarage(player);
+    const payload      = renderGtaHome(cdState, unlockedCars, garageData);
     return interaction.editReply(payload);
   }
 
@@ -76,12 +80,22 @@ async function handle(interaction) {
     return interaction.editReply(payload);
   }
 
+  // ── panel_gta_store_{carId} ───────────────
+  if (customId.startsWith('panel_gta_store_')) {
+    const carId = customId.replace('panel_gta_store_', '');
+    await interaction.deferUpdate();
+    const result  = await gtaService.storeCar(serverId, discordId, carId);
+    const payload = result.success
+      ? renderGtaStored(result)
+      : { embeds: [embeds.error(result.message)], components: [] };
+    return interaction.editReply(payload);
+  }
+
   // ── panel_gta_melt_{carId} ────────────────
-  if (customId.startsWith('panel_gta_melt_')) {
+  if (customId.startsWith('panel_gta_melt_') && !customId.startsWith('panel_gta_melt_all') && !customId.includes('garage')) {
     const carId = customId.replace('panel_gta_melt_', '');
     await interaction.deferUpdate();
-
-    const result  = await gtaService.meltCar(serverId, discordId, carId);
+    const result  = await gtaService.meltCar(serverId, discordId, carId, false);
     const payload = result.success
       ? renderGtaMelted(result)
       : { embeds: [embeds.error(result.message)], components: [] };
@@ -89,15 +103,74 @@ async function handle(interaction) {
   }
 
   // ── panel_gta_sell_{carId} ────────────────
-  if (customId.startsWith('panel_gta_sell_')) {
+  if (customId.startsWith('panel_gta_sell_') && !customId.startsWith('panel_gta_sell_all') && !customId.includes('garage')) {
     const carId = customId.replace('panel_gta_sell_', '');
     await interaction.deferUpdate();
-
-    const result  = await gtaService.sellCar(serverId, discordId, carId);
+    const result  = await gtaService.sellCar(serverId, discordId, carId, false);
     const payload = result.success
       ? renderGtaSold(result)
       : { embeds: [embeds.error(result.message)], components: [] };
     return interaction.editReply(payload);
+  }
+
+  // ── panel_gta_garage — show garage ────────
+  if (customId === 'panel_gta_garage') {
+    await interaction.deferUpdate();
+    const { player } = await getPlayerAndCrew(serverId, discordId);
+    if (!player) return safeFollowUp(interaction, { embeds: [embeds.error('No player found.')] });
+    const garageData = gtaService.getGarage(player);
+    return interaction.editReply(renderGarageHome(garageData));
+  }
+
+  // ── panel_gta_melt_all ────────────────────
+  if (customId === 'panel_gta_melt_all') {
+    await interaction.deferUpdate();
+    const result = await gtaService.meltAll(serverId, discordId);
+    if (!result.success) {
+      return interaction.editReply({ embeds: [embeds.error(result.message)], components: [] });
+    }
+    const { player } = await getPlayerAndCrew(serverId, discordId);
+    return interaction.editReply(renderGarageHome(gtaService.getGarage(player)));
+  }
+
+  // ── panel_gta_sell_all ────────────────────
+  if (customId === 'panel_gta_sell_all') {
+    await interaction.deferUpdate();
+    const result = await gtaService.sellAll(serverId, discordId);
+    if (!result.success) {
+      return interaction.editReply({ embeds: [embeds.error(result.message)], components: [] });
+    }
+    const { player } = await getPlayerAndCrew(serverId, discordId);
+    return interaction.editReply(renderGarageHome(gtaService.getGarage(player)));
+  }
+
+  // ── panel_gta_garage_melt_{carId}_{index} ─
+  if (customId.startsWith('panel_gta_garage_melt_')) {
+    const rest  = customId.replace('panel_gta_garage_melt_', '');
+    const parts = rest.split('_');
+    const index = parseInt(parts[parts.length - 1]);
+    const carId = parts.slice(0, parts.length - 1).join('_');
+    await interaction.deferUpdate();
+    const result = await gtaService.meltCar(serverId, discordId, carId, true);
+    if (!result.success) {
+      return interaction.editReply({ embeds: [embeds.error(result.message)], components: [] });
+    }
+    const { player } = await getPlayerAndCrew(serverId, discordId);
+    return interaction.editReply(renderGtaMelted(result));
+  }
+
+  // ── panel_gta_garage_sell_{carId}_{index} ─
+  if (customId.startsWith('panel_gta_garage_sell_')) {
+    const rest  = customId.replace('panel_gta_garage_sell_', '');
+    const parts = rest.split('_');
+    const index = parseInt(parts[parts.length - 1]);
+    const carId = parts.slice(0, parts.length - 1).join('_');
+    await interaction.deferUpdate();
+    const result = await gtaService.sellCar(serverId, discordId, carId, true);
+    if (!result.success) {
+      return interaction.editReply({ embeds: [embeds.error(result.message)], components: [] });
+    }
+    return interaction.editReply(renderGtaSold(result));
   }
 
   console.warn('[gtaPanel] Unhandled customId:', customId);
@@ -108,7 +181,24 @@ async function handleModal(interaction) {
 }
 
 async function handleSelect(interaction) {
-  console.warn('[gtaPanel] Unexpected select:', interaction.customId);
+  const { customId } = interaction;
+  const serverId     = interaction.guildId;
+  const discordId    = interaction.user.id;
+
+  // ── select_garage_car — view a specific car ──
+  if (customId === 'select_garage_car') {
+    await interaction.deferUpdate();
+    const value  = interaction.values[0]; // garage_car:{carId}:{index}
+    const parts  = value.replace('garage_car:', '').split(':');
+    const carId  = parts[0];
+    const index  = parseInt(parts[1]);
+    const { CARS } = require('../data/constants');
+    const car    = CARS[carId];
+    if (!car) return interaction.editReply({ embeds: [embeds.error('Car not found.')], components: [] });
+    return interaction.editReply(renderGarageCarView(car, index));
+  }
+
+  console.warn('[gtaPanel] Unexpected select:', customId);
 }
 
 module.exports = { handle, handleModal, handleSelect };

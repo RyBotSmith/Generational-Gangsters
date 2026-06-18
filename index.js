@@ -134,7 +134,7 @@ const SELECT_ROUTES = {
   'select_crew':     (i) => crewPanel.handleSelect(i),
   'select_gamble':   (i) => gamblingPanel.handleSelect(i),
   'select_business': (i) => businessPanel.handleSelect(i),
-  'select_combat':   (i) => combatPanel.handleSelect(i),
+  'select_garage_car': (i) => gtaPanel.handleSelect(i),
 };
 
 // ── Router helpers ────────────────────────────
