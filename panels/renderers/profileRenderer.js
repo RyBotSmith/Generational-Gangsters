@@ -262,7 +262,21 @@ function renderUpgradePurchaseResult(result) {
  * @param {object} player
  */
 function renderStatsPanel(player) {
-  const s = player.stats ?? {};
+  const s   = player.stats ?? {};
+  const inv = player.inventory ?? {};
+
+  // Calculate total buffs
+  const weaponDef  = inv.equippedWeapon  ? WEAPONS[inv.equippedWeapon.id]   : null;
+  const vehicleDef = inv.equippedVehicle ? VEHICLES[inv.equippedVehicle.id] : null;
+  const crimeAllocs = (player.prestigeAllocations ?? []).filter(a => a === 'crime').length;
+  const gtaAllocs   = (player.prestigeAllocations ?? []).filter(a => a === 'gta').length;
+
+  const crimeTotalBuff = Math.round(
+    ((weaponDef?.crimeBonus ?? 0) + (vehicleDef?.crimeBonus ?? 0) + crimeAllocs * 0.10) * 100
+  );
+  const gtaTotalBuff = Math.round(
+    ((weaponDef?.gtaBonus ?? 0) + (vehicleDef?.gtaBonus ?? 0) + gtaAllocs * 0.10) * 100
+  );
 
   const crimeWinPct = s.crimesAttempted > 0
     ? Math.round((s.crimesSucceeded / s.crimesAttempted) * 100)
@@ -286,8 +300,21 @@ function renderStatsPanel(player) {
     : `-${formatCash(Math.abs(netGamble))}`;
 
   const embed = embeds.base(embeds.COLOURS.info)
-    .setTitle(`📊 ${player.username ?? 'Stats'}`)
-    .addFields(
+    .setTitle(`📊 ${player.username ?? 'Stats'}`);
+
+  // Only show buff summary if player has any buffs
+  if (crimeTotalBuff > 0 || gtaTotalBuff > 0) {
+    embed.addFields({
+      name: '⚡ Total Success Buffs',
+      value: [
+        crimeTotalBuff > 0 ? `🕵️ Crime: **+${crimeTotalBuff}%**` : null,
+        gtaTotalBuff   > 0 ? `🚗 GTA: **+${gtaTotalBuff}%**`     : null,
+      ].filter(Boolean).join(' · '),
+      inline: false,
+    });
+  }
+
+  embed.addFields(
       {
         name: '💀 Crimes',
         value: [

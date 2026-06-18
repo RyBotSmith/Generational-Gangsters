@@ -6,15 +6,11 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const embeds = require('../../utils/embeds');
 const { formatCash, relativeTimestamp } = require('../../utils/helpers');
+const { WEAPONS, VEHICLES } = require('../../data/constants');
 
 // ── GTA home panel ────────────────────────────
 
-/**
- * Render the GTA home panel — shows cooldown state and steal button.
- * @param {{ onCooldown, nextAvailableMs }} cdState
- * @param {object[]} unlockedCars  — from gtaService.getUnlockedCars(player)
- */
-function renderGtaHome(cdState, unlockedCars, garageData = {}) {
+function renderGtaHome(cdState, unlockedCars, garageData = {}, player = null) {
   const topCar  = unlockedCars[unlockedCars.length - 1];
   const botCar  = unlockedCars[0];
   const { garage = [], garageMax = 5 } = garageData;
@@ -30,6 +26,20 @@ function renderGtaHome(cdState, unlockedCars, garageData = {}) {
     .setTitle('🚗 Grand Theft Auto')
     .setDescription(desc)
     .addFields({ name: '🅿️ Garage', value: `${garage.length}/${garageMax} slots used`, inline: true });
+
+  if (player) {
+    const inv        = player.inventory ?? {};
+    const weaponDef  = inv.equippedWeapon  ? WEAPONS[inv.equippedWeapon.id]   : null;
+    const vehicleDef = inv.equippedVehicle ? VEHICLES[inv.equippedVehicle.id] : null;
+    const allocs     = (player.prestigeAllocations ?? []).filter(a => a === 'gta');
+    const buffParts  = [];
+    if (weaponDef?.gtaBonus)  buffParts.push(`🔫 +${Math.round(weaponDef.gtaBonus * 100)}% (weapon)`);
+    if (vehicleDef?.gtaBonus) buffParts.push(`🚗 +${Math.round(vehicleDef.gtaBonus * 100)}% (vehicle)`);
+    if (allocs.length > 0)    buffParts.push(`🌟 +${allocs.length * 10}% (prestige)`);
+    if (buffParts.length > 0) {
+      embed.addFields({ name: '⚡ Active Buffs', value: buffParts.join(' · '), inline: false });
+    }
+  }
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -87,11 +97,7 @@ function renderGtaStolen(result) {
       .setCustomId(`panel_gta_store_${car.id}`)
       .setLabel('🅿️ Store')
       .setStyle(ButtonStyle.Secondary)
-      .setDisabled(garageFull),
-    new ButtonBuilder()
-      .setCustomId('panel_gta')
-      .setLabel('⬅ Back')
-      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(garageFull)
   );
 
   return { embeds: [embed], components: [row] };

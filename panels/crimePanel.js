@@ -46,7 +46,7 @@ async function handle(interaction) {
     const crimeList      = crimeService.getAllCrimes(player);
     const allCrimesDefs  = Object.values(CRIMES).sort((a, b) => a.rankRequired - b.rankRequired);
     const playerRankIndex = getRankIndex(player.xp ?? 0, RANKS);
-    const payload        = renderCrimeList(crimeList, allCrimesDefs, playerRankIndex);
+    const payload        = renderCrimeList(crimeList, allCrimesDefs, playerRankIndex, player);
     return interaction.editReply(payload);
   }
 

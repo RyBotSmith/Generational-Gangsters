@@ -66,7 +66,7 @@ async function handle(interaction) {
     const cdState      = buildCdState(player);
     const unlockedCars = gtaService.getUnlockedCars(player);
     const garageData   = gtaService.getGarage(player);
-    const payload      = renderGtaHome(cdState, unlockedCars, garageData);
+    const payload      = renderGtaHome(cdState, unlockedCars, garageData, player);
     return interaction.editReply(payload);
   }
 

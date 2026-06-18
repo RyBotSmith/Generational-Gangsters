@@ -73,6 +73,14 @@ function renderBoozePanel(data) {
   if (sameState) desc += `\n⚠️ **Selling here will get you busted!** Travel first.`;
   if (onBuyCooldown) desc += `\n⏳ Buy cooldown active — can buy again <t:${Math.floor(boozeCooldownUntil / 1000)}:R>`;
 
+  // Capacity buff breakdown — only show if any buffs active
+  const baseCapacity = 10;
+  const capacityBuffParts = [];
+  const upgradeBonus = boozeCapacity - baseCapacity - (player.prestige4Perk === 'capacity' ? 20 : 0);
+  if (upgradeBonus > 0) capacityBuffParts.push(`+${upgradeBonus} upgrades`);
+  if (player.prestige4Perk === 'capacity') capacityBuffParts.push(`+20 P4`);
+  if (capacityBuffParts.length > 0) desc += `\n⚡ **Capacity buffs:** ${capacityBuffParts.join(' · ')}`;
+
   const embed = embeds.base(embeds.COLOURS.info)
     .setTitle('🍺 Booze Trafficking')
     .setDescription(desc);
@@ -167,6 +175,13 @@ function renderDrugsPanel(data) {
   if (drugsCarried > 0) desc += ` | Stock value here: **${formatCash(stockValue)}**`;
   if (sameState) desc += `\n⚠️ **Selling here will get you busted!** Travel first.`;
   if (onBuyCooldown) desc += `\n⏳ Buy cooldown active — can buy again <t:${Math.floor(drugCooldownUntil / 1000)}:R>`;
+
+  const drugBaseCapacity = 10;
+  const drugCapacityBuffParts = [];
+  const drugUpgradeBonus = drugCapacity - drugBaseCapacity - (player.prestige4Perk === 'capacity' ? 20 : 0);
+  if (drugUpgradeBonus > 0) drugCapacityBuffParts.push(`+${drugUpgradeBonus} upgrades`);
+  if (player.prestige4Perk === 'capacity') drugCapacityBuffParts.push(`+20 P4`);
+  if (drugCapacityBuffParts.length > 0) desc += `\n⚡ **Capacity buffs:** ${drugCapacityBuffParts.join(' · ')}`;
 
   const embed = embeds.base(embeds.COLOURS.warning)
     .setTitle('💊 Drug Trafficking')

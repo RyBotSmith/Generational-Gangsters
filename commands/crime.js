@@ -35,6 +35,6 @@ module.exports = {
     const allCrimesDefs  = Object.values(CRIMES).sort((a, b) => a.rankRequired - b.rankRequired);
     const playerRankIndex = getRankIndex(player.xp ?? 0, RANKS);
 
-    return interaction.editReply(renderCrimeList(crimeList, allCrimesDefs, playerRankIndex));
+    return interaction.editReply(renderCrimeList(crimeList, allCrimesDefs, playerRankIndex, player));
   },
 };

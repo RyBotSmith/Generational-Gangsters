@@ -6,22 +6,19 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const embeds   = require('../../utils/embeds');
 const { formatCash, formatDuration, relativeTimestamp } = require('../../utils/helpers');
+const { WEAPONS, VEHICLES, PRESTIGE_CRIME_BONUS } = require('../../data/constants');
 
 // ── Crime home panel ──────────────────────────
 
 /**
- * Render the crime home panel.
- * Shows all crimes with their status (locked / cooldown / ready),
- * a single Commit button, and a Home button.
- *
- * @param {object[]} crimeList        — from crimeService.getAllCrimes(player)
- * @param {object[]} allCrimesDefs    — full CRIMES list including rank-locked ones
- * @param {number}   playerRankIndex  — current rank index for lock display
+ * @param {object[]} crimeList
+ * @param {object[]} allCrimesDefs
+ * @param {number}   playerRankIndex
+ * @param {object}   player           — for buff display
  */
-function renderCrimeList(crimeList, allCrimesDefs = [], playerRankIndex = 0) {
+function renderCrimeList(crimeList, allCrimesDefs = [], playerRankIndex = 0, player = null) {
   const readyCount = crimeList.filter(c => !c.onCooldown).length;
 
-  // Build status lines for unlocked crimes
   const unlockedLines = crimeList.map(({ crime, onCooldown, cooldownRemainingMs }) => {
     if (onCooldown) {
       return `⏳ **${crime.name}** — ${formatDuration(Math.ceil(cooldownRemainingMs / 1000))}`;
@@ -29,7 +26,6 @@ function renderCrimeList(crimeList, allCrimesDefs = [], playerRankIndex = 0) {
     return `✅ **${crime.name}**`;
   });
 
-  // Rank-locked crimes (not in crimeList)
   const unlockedIds = new Set(crimeList.map(c => c.crime.id));
   const lockedLines = allCrimesDefs
     .filter(c => !unlockedIds.has(c.id))
@@ -37,14 +33,29 @@ function renderCrimeList(crimeList, allCrimesDefs = [], playerRankIndex = 0) {
 
   const allLines = [...unlockedLines, ...lockedLines];
 
-  const desc = allLines.length
-    ? allLines.join('\n')
-    : 'No crimes available.';
+  // ── Buff display ──────────────────────────
+  const buffParts = [];
+  if (player) {
+    const inv        = player.inventory ?? {};
+    const weaponDef  = inv.equippedWeapon  ? WEAPONS[inv.equippedWeapon.id]   : null;
+    const vehicleDef = inv.equippedVehicle ? VEHICLES[inv.equippedVehicle.id] : null;
+    const allocs     = (player.prestigeAllocations ?? []).filter(a => a === 'crime');
+
+    if (weaponDef?.crimeBonus)  buffParts.push(`🔫 +${Math.round(weaponDef.crimeBonus * 100)}% (weapon)`);
+    if (vehicleDef?.crimeBonus) buffParts.push(`🚗 +${Math.round(vehicleDef.crimeBonus * 100)}% (vehicle)`);
+    if (allocs.length > 0)      buffParts.push(`🌟 +${allocs.length * 10}% (prestige)`);
+  }
+
+  const desc = allLines.length ? allLines.join('\n') : 'No crimes available.';
 
   const embed = embeds.base(embeds.COLOURS.dark)
     .setTitle('🕵️ Crimes')
     .setDescription(desc)
     .setFooter({ text: `${readyCount} crime${readyCount !== 1 ? 's' : ''} ready to commit` });
+
+  if (buffParts.length > 0) {
+    embed.addFields({ name: '⚡ Active Buffs', value: buffParts.join(' · '), inline: false });
+  }
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
