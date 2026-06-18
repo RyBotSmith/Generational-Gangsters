@@ -124,11 +124,6 @@ function renderGtaFailed() {
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId('panel_gta_steal')
-      .setLabel('🔄 Try Again')
-      .setStyle(ButtonStyle.Danger)
-      .setDisabled(true), // on cooldown now
-    new ButtonBuilder()
       .setCustomId('panel_gta')
       .setLabel('⬅ Back')
       .setStyle(ButtonStyle.Secondary)
@@ -167,7 +162,7 @@ function renderGtaMelted(result) {
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('panel_gta')
-      .setLabel('🚗 Steal Again')
+      .setLabel('⬅ GTA')
       .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
       .setCustomId('panel_home')
@@ -192,7 +187,7 @@ function renderGtaSold(result) {
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('panel_gta')
-      .setLabel('🚗 Steal Again')
+      .setLabel('⬅ GTA')
       .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
       .setCustomId('panel_home')

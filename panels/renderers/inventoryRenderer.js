@@ -23,32 +23,67 @@ function renderInventoryHome(player) {
   const eqHeadwear = inv.equippedHeadwear ? ARMOUR[inv.equippedHeadwear.id]  : null;
   const eqVehicle  = inv.equippedVehicle  ? VEHICLES[inv.equippedVehicle.id] : null;
 
+  function weaponStats(def, item) {
+    if (!def) return '*None equipped*';
+    const parts = [`**${def.name}** (${item.shotsUsed}/${def.durabilityShots} shots • ${item.killsUsed}/${def.durabilityKills} kills)`];
+    if (def.reduction)  parts.push(`-${Math.round(def.reduction * 100)}% bullets to kill`);
+    if (def.crimeBonus) parts.push(`+${Math.round(def.crimeBonus * 100)}% crime`);
+    if (def.gtaBonus)   parts.push(`+${Math.round(def.gtaBonus * 100)}% GTA`);
+    return parts.join(' • ');
+  }
+
+  function armourStats(def, item) {
+    if (!def) return '*None equipped*';
+    return `**${def.name}** (${item.shotsAbsorbed}/${def.durabilityShots} shots • ${item.deathsSurvived}/${def.durabilityDeaths} deaths) • +${Math.round(def.armorBonus * 100)}% armour`;
+  }
+
+  function vehicleStats(def) {
+    if (!def) return '*None equipped*';
+    const parts = [`**${def.name}**`];
+    if (def.crimeBonus) parts.push(`+${Math.round(def.crimeBonus * 100)}% crime`);
+    if (def.gtaBonus)   parts.push(`+${Math.round(def.gtaBonus * 100)}% GTA`);
+    return parts.join(' • ');
+  }
+
   const equippedLines = [
-    `🔫 **Weapon:** ${eqWeapon   ? `${eqWeapon.name} (${inv.equippedWeapon.shotsUsed}/${eqWeapon.durabilityShots} shots)`     : '*None*'}`,
-    `🛡️ **Armour:** ${eqArmour   ? `${eqArmour.name} (${inv.equippedArmour.shotsAbsorbed}/${eqArmour.durabilityShots} shots)` : '*None*'}`,
-    `🪖 **Headwear:** ${eqHeadwear ? `${eqHeadwear.name} (${inv.equippedHeadwear.shotsAbsorbed}/${eqHeadwear.durabilityShots} shots)` : '*None*'}`,
-    `🚗 **Vehicle:** ${eqVehicle  ? eqVehicle.name : '*None*'}`,
+    `🔫 **Weapon:** ${weaponStats(eqWeapon, inv.equippedWeapon)}`,
+    `🛡️ **Armour:** ${armourStats(eqArmour, inv.equippedArmour)}`,
+    `🪖 **Headwear:** ${armourStats(eqHeadwear, inv.equippedHeadwear)}`,
+    `🚗 **Vehicle:** ${vehicleStats(eqVehicle)}`,
   ];
 
   // ── Owned (unequipped) ────────────────────
   const ownedWeapons   = (inv.ownedWeapons   ?? []).map((w, i) => {
     const def = WEAPONS[w.id];
-    return def ? `${i + 1}. ${def.name} (${w.shotsUsed}/${def.durabilityShots} shots) — ${formatCash(Math.floor(def.cost * 0.5))} sell` : null;
+    if (!def) return null;
+    const stats = [
+      def.reduction  ? `-${Math.round(def.reduction * 100)}% bullets` : null,
+      def.crimeBonus ? `+${Math.round(def.crimeBonus * 100)}% crime`  : null,
+      def.gtaBonus   ? `+${Math.round(def.gtaBonus * 100)}% GTA`      : null,
+    ].filter(Boolean).join(' • ');
+    return `${i + 1}. **${def.name}** (${w.shotsUsed}/${def.durabilityShots} shots) — ${stats} — sell: ${formatCash(Math.floor(def.cost * 0.5))}`;
   }).filter(Boolean);
 
   const ownedArmour    = (inv.ownedArmour    ?? []).map((a, i) => {
     const def = ARMOUR[a.id];
-    return def ? `${i + 1}. ${def.name} (${a.shotsAbsorbed}/${def.durabilityShots} shots) — ${formatCash(Math.floor(def.cost * 0.5))} sell` : null;
+    if (!def) return null;
+    return `${i + 1}. **${def.name}** (${a.shotsAbsorbed}/${def.durabilityShots} shots) — +${Math.round(def.armorBonus * 100)}% armour — sell: ${formatCash(Math.floor(def.cost * 0.5))}`;
   }).filter(Boolean);
 
   const ownedHeadwear  = (inv.ownedHeadwear  ?? []).map((h, i) => {
     const def = ARMOUR[h.id];
-    return def ? `${i + 1}. ${def.name} (${h.shotsAbsorbed}/${def.durabilityShots} shots) — ${formatCash(Math.floor(def.cost * 0.5))} sell` : null;
+    if (!def) return null;
+    return `${i + 1}. **${def.name}** (${h.shotsAbsorbed}/${def.durabilityShots} shots) — +${Math.round(def.armorBonus * 100)}% armour — sell: ${formatCash(Math.floor(def.cost * 0.5))}`;
   }).filter(Boolean);
 
   const ownedVehicles  = (inv.ownedVehicles  ?? []).map((v, i) => {
     const def = VEHICLES[v.id];
-    return def ? `${i + 1}. ${def.name} — ${formatCash(Math.floor(def.cost * 0.5))} sell` : null;
+    if (!def) return null;
+    const stats = [
+      def.crimeBonus ? `+${Math.round(def.crimeBonus * 100)}% crime` : null,
+      def.gtaBonus   ? `+${Math.round(def.gtaBonus * 100)}% GTA`     : null,
+    ].filter(Boolean).join(' • ');
+    return `${i + 1}. **${def.name}** — ${stats} — sell: ${formatCash(Math.floor(def.cost * 0.5))}`;
   }).filter(Boolean);
 
   // ── Consumables ───────────────────────────
