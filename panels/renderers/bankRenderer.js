@@ -49,7 +49,7 @@ function renderBankHome(player, bankLimit) {
     )
   );
 
-  // Row 3: Bulk + transfer + custom + home
+  // Row 3: Bulk + transfer + home
   const row3 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('panel_bank_withdraw_all')
@@ -67,16 +67,20 @@ function renderBankHome(player, bankLimit) {
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(cash <= 0),
     new ButtonBuilder()
-      .setCustomId('panel_bank_custom')
-      .setLabel('✏️ Custom')
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
       .setCustomId('panel_home')
       .setLabel('🏠 Home')
       .setStyle(ButtonStyle.Secondary)
   );
 
-  return { embeds: [embed], components: [row3, row1, row2] };
+  // Row 4: Custom on its own
+  const row4 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('panel_bank_custom')
+      .setLabel('✏️ Custom Amount')
+      .setStyle(ButtonStyle.Secondary)
+  );
+
+  return { embeds: [embed], components: [row3, row1, row2, row4] };
 }
 
 // ── Transfer player select ────────────────────
