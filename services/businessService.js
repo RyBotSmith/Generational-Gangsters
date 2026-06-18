@@ -2,13 +2,6 @@
 //  businessService.js  —  All business game logic.
 //  Rule: NO Discord imports. NO embed creation.
 //  Returns plain Result Objects only.
-//
-//  KEY BUG NOTES (do not regress):
-//  - Slots are keyed by businessId = `${typeId}_${state}` (e.g. "bar_New York"),
-//    NEVER by userId. All ops use direct doc update by slot ID via
-//    businessRepository — never a "setBusiness(userId, state)" pattern.
-//  - getBusinessesInState() filters to slot_* style docs by reading the
-//    fixed BUSINESS_TYPES table — there are only 3 slots total.
 // ─────────────────────────────────────────────
 
 const {
@@ -17,6 +10,7 @@ const {
   BUSINESS_MAX_PENDING_HOURS,
   BUSINESS_RAID_COOLDOWN,
   BUSINESS_RAIDS_TO_LOSE,
+  STATES,
   ACTION_TYPES,
 } = require('../data/constants');
 
@@ -24,650 +18,577 @@ const playerRepository   = require('../repositories/playerRepository');
 const businessRepository = require('../repositories/businessRepository');
 const logRepository      = require('../repositories/logRepository');
 
-// ── Internal helpers ──────────────────────────
+// ── Helpers ───────────────────────────────────
 
 /**
- * Build the businessId for a given typeId. Slot location is fixed by type
- * per the GDD (bar → New York, drug_lab → Miami, casino → Chicago).
+ * Firestore slot key from state name.
+ * e.g. 'New York' → 'slot_New_York'
  */
-function slotIdForType(typeId) {
-  const type = BUSINESS_TYPES[typeId];
+function slotKey(state) {
+  return `slot_${state.replace(/ /g, '_')}`;
+}
+
+/**
+ * State name from slot key.
+ * e.g. 'slot_New_York' → 'New York'
+ */
+function slotState(key) {
+  return key.replace('slot_', '').replace(/_/g, ' ');
+}
+
+/**
+ * Calculate pending income for a business.
+ */
+function calcPending(business) {
+  const type       = BUSINESS_TYPES[business.typeId];
+  if (!type) return 0;
+  const incomePerHr = type.incomePerHr * (business.level ?? 1);
+  const maxPending  = incomePerHr * 1; // capped at 1hr per GDD clarification
+  const elapsed     = (Date.now() - (business.lastCollectedAt ?? business.claimedAt ?? Date.now())) / 3600000;
+  return Math.min(Math.floor(elapsed * incomePerHr), maxPending);
+}
+
+/**
+ * Calculate upgrade cost for next level.
+ */
+function calcUpgradeCost(business) {
+  const type = BUSINESS_TYPES[business.typeId];
   if (!type) return null;
-  return `${typeId}_${type.homeState}`;
+  const nextLevel = (business.level ?? 1) + 1;
+  if (nextLevel > 5) return null;
+  return Math.floor(type.buyCost * Math.pow(type.upgradeMult, business.level ?? 1));
 }
 
 /**
- * Upgrade cost formula: buyCost × upgradeMult^level
- * level here is the level being purchased (i.e. current level + 1).
+ * Calculate raid bullets required.
  */
-function upgradeCost(type, targetLevel) {
-  return Math.round(type.buyCost * Math.pow(type.upgradeMult, targetLevel - 1));
+function calcRaidBullets(business) {
+  return 200 * (business.level ?? 1);
 }
 
 /**
- * Income per hour at a given level.
+ * Calculate raid success chance.
  */
-function incomePerHour(type, level) {
-  return type.incomePerHr * level;
+function calcRaidChance(business) {
+  const type = BUSINESS_TYPES[business.typeId];
+  if (!type?.raidBase) return 0;
+  return Math.max(0.15, type.raidBase - ((business.level ?? 1) - 1) * 0.10);
 }
 
 /**
- * Pending cash accrued since lastCollect, capped at BUSINESS_MAX_PENDING_HOURS.
+ * Pick a random state that has no illegal business currently.
  */
-function calcPendingCash(slot, type) {
-  if (!slot.ownerId || slot.level <= 0) return 0;
-  const now      = Date.now();
-  const lastTime = slot.lastCollect ?? slot.purchasedAt ?? now;
-  const elapsedHours = Math.max(0, (now - lastTime) / (1000 * 60 * 60));
-
-  const perHour    = incomePerHour(type, slot.level);
-  const maxPending = perHour * BUSINESS_MAX_PENDING_HOURS;
-
-  return Math.min(elapsedHours * perHour, maxPending);
-}
-
-/**
- * Raid chance at a given level: raidBase - (level × 0.05), floored at 0.
- */
-function raidChance(type, level) {
-  if (type.raidBase == null) return null; // legal businesses (e.g. bar) can't be raided
-  return Math.max(0, type.raidBase - (level * 0.05));
-}
-
-/**
- * Bullets required to attempt a raid at a given level.
- */
-function raidBulletsRequired(level) {
-  return 200 * level;
-}
-
-/**
- * Collect cooldown state for a slot.
- */
-function collectCooldownState(slot) {
-  const lastCollect = slot.lastCollect ?? slot.purchasedAt ?? null;
-  const nextMs      = lastCollect ? lastCollect + BUSINESS_COLLECT_COOLDOWN * 1000 : 0;
-  const remainingMs = Math.max(0, nextMs - Date.now());
-  return { onCooldown: remainingMs > 0, cooldownRemainingMs: remainingMs, nextAvailableMs: nextMs };
-}
-
-/**
- * Raid cooldown state for a slot.
- */
-function raidCooldownState(slot) {
-  const lastRaid    = slot.lastRaidedAt ?? null;
-  const nextMs      = lastRaid ? lastRaid + BUSINESS_RAID_COOLDOWN * 1000 : 0;
-  const remainingMs = Math.max(0, nextMs - Date.now());
-  return { onCooldown: remainingMs > 0, cooldownRemainingMs: remainingMs, nextAvailableMs: nextMs };
+async function pickEmptyIllegalState(serverId, excludeState) {
+  const allSlots = await businessRepository.getAllSlots(serverId);
+  const occupiedStates = new Set(
+    allSlots
+      .filter(s => s.ownerId && BUSINESS_TYPES[s.typeId]?.category === 'illegal')
+      .map(s => s.state)
+  );
+  const candidates = STATES.filter(s => s !== excludeState && !occupiedStates.has(s));
+  if (candidates.length === 0) return STATES.find(s => s !== excludeState) ?? STATES[0];
+  return candidates[Math.floor(Math.random() * candidates.length)];
 }
 
 // ── Public API ────────────────────────────────
 
 /**
- * Seed the 3 fixed business slots in Firestore if they don't already exist.
- * Safe to call on every startup (idempotent).
+ * Initialise the 3 business slots for a server if they don't exist.
+ * Called lazily on first business panel open.
  */
 async function initSlots(serverId) {
-  const results = [];
-  for (const type of Object.values(BUSINESS_TYPES)) {
-    const businessId = slotIdForType(type.id);
-    if (!businessId) continue;
-    const slot = await businessRepository.initSlot(serverId, type.id, type.homeState);
-    results.push(slot);
+  const defaults = [
+    { state: 'New York', typeId: 'bar' },
+    { state: 'Miami',    typeId: 'drug_lab' },
+    { state: 'Chicago',  typeId: 'casino' },
+  ];
+
+  for (const { state, typeId } of defaults) {
+    const key      = slotKey(state);
+    const existing = await businessRepository.getSlot(serverId, key);
+    if (!existing) {
+      await businessRepository.setSlot(serverId, key, {
+        key,
+        state,
+        typeId,
+        ownerId:         null,
+        ownerName:       null,
+        level:           1,
+        raidCount:       0,
+        lastCollectedAt: null,
+        lastRaidedAt:    null,
+        claimedAt:       null,
+        onCooldown:      false,
+        cooldownUntil:   null,
+        pendingCash:     0,
+      });
+    }
   }
-  return results;
 }
 
 /**
- * Get all 3 fixed business slots, enriched with view-state (income, pending,
- * cooldowns, raid chance) for rendering.
+ * Get all business slots and the player's owned business.
  */
-async function getAllSlotsView(serverId) {
-  const slots = await businessRepository.getAllSlots(serverId);
-  return slots.map(slot => enrichSlot(slot));
-}
+async function getBusinessState(serverId, discordId) {
+  await initSlots(serverId);
 
-/**
- * Get the businesses located in a given state (used by the travel/state panel).
- * Only returns slots whose homeState matches.
- */
-async function getBusinessesInState(serverId, state) {
-  const slots = await businessRepository.getAllSlots(serverId);
-  return slots
-    .filter(s => s.state === state)
-    .map(slot => enrichSlot(slot));
-}
+  const player = await playerRepository.getPlayer(serverId, discordId);
+  if (!player) return { success: false, message: 'Player not found.', data: {} };
 
-/**
- * Enrich a raw slot doc with derived view fields.
- */
-function enrichSlot(slot) {
-  const type = BUSINESS_TYPES[slot.typeId];
-  if (!type) return { ...slot, type: null };
-
-  const pendingCash = calcPendingCash(slot, type);
-  const cdState     = collectCooldownState(slot);
-  const raidCd      = raidCooldownState(slot);
-  const rChance     = raidChance(type, slot.level);
+  const allSlots    = await businessRepository.getAllSlots(serverId);
+  const playerSlot  = allSlots.find(s => s.ownerId === discordId) ?? null;
+  const stateSlot   = allSlots.find(s => s.state === player.state) ?? null;
 
   return {
-    ...slot,
-    type,
-    pendingCash,
-    incomePerHr: slot.level > 0 ? incomePerHour(type, slot.level) : 0,
-    nextUpgradeCost: slot.level < type.maxLevel ? upgradeCost(type, slot.level + 1) : null,
-    collectCooldown: cdState,
-    raidCooldown: raidCd,
-    raidChance: rChance,
-    raidBulletsRequired: rChance != null ? raidBulletsRequired(slot.level) : null,
+    success: true,
+    message: '',
+    data: {
+      player,
+      allSlots,
+      playerSlot,
+      stateSlot,
+      playerState: player.state,
+    },
   };
 }
 
 /**
- * Claim (buy) a business slot.
- * Player must be in the slot's home state, own no other business, and afford buyCost.
+ * Claim an unowned business slot in the player's current state.
  */
-async function claim(serverId, discordId, typeId) {
-  const type = BUSINESS_TYPES[typeId];
-  if (!type) {
-    return { success: false, message: 'Unknown business type.', data: {}, updates: {}, log: null };
-  }
-
-  const businessId = slotIdForType(typeId);
+async function claim(serverId, discordId) {
+  await initSlots(serverId);
 
   const player = await playerRepository.getPlayer(serverId, discordId);
-  if (!player) {
-    return { success: false, message: 'Player not found.', data: {}, updates: {}, log: null };
-  }
+  if (!player) return { success: false, message: 'Player not found.', data: {}, updates: {} };
 
-  // ── Status checks ─────────────────────────
   if (player.jailedUntil && Date.now() < player.jailedUntil) {
-    return { success: false, message: 'You are in jail.', data: { jailed: true, jailedUntil: player.jailedUntil }, updates: {}, log: null };
+    return { success: false, message: 'You cannot claim a business while in jail.', data: {}, updates: {} };
   }
   if (player.hospitalizedUntil && Date.now() < player.hospitalizedUntil) {
-    return { success: false, message: 'You are in hospital.', data: { hospitalized: true, hospitalizedUntil: player.hospitalizedUntil }, updates: {}, log: null };
-  }
-  if (player.travelling && player.travelEndTime > Date.now()) {
-    return { success: false, message: 'You are travelling.', data: { travelling: true }, updates: {}, log: null };
+    return { success: false, message: 'You cannot claim a business while in hospital.', data: {}, updates: {} };
   }
 
-  // ── Location check ────────────────────────
-  if (player.state !== type.homeState) {
-    return {
-      success: false,
-      message: `You need to be in **${type.homeState}** to claim the **${type.name}**.`,
-      data: { wrongState: true, requiredState: type.homeState },
-      updates: {},
-      log: null,
-    };
+  // Check player doesn't already own one
+  const allSlots = await businessRepository.getAllSlots(serverId);
+  if (allSlots.some(s => s.ownerId === discordId)) {
+    return { success: false, message: 'You already own a business. Sell it before claiming another.', data: {}, updates: {} };
   }
 
-  // ── One business per player ───────────────
-  if (player.businessId) {
-    return {
-      success: false,
-      message: 'You already own a business. Sell it before claiming another.',
-      data: { alreadyOwns: true },
-      updates: {},
-      log: null,
-    };
-  }
+  const key  = slotKey(player.state);
+  const slot = await businessRepository.getSlot(serverId, key);
 
-  // ── Slot must be unowned ───────────────────
-  const slot = await businessRepository.getSlot(serverId, businessId);
   if (!slot) {
-    return { success: false, message: 'Business slot not found. Contact an admin.', data: {}, updates: {}, log: null };
+    return { success: false, message: `No business slot in **${player.state}**.`, data: {}, updates: {} };
   }
+
   if (slot.ownerId) {
+    return { success: false, message: `The **${BUSINESS_TYPES[slot.typeId]?.name}** in **${player.state}** is already owned.`, data: {}, updates: {} };
+  }
+
+  if (slot.onCooldown && slot.cooldownUntil > Date.now()) {
     return {
       success: false,
-      message: `The **${type.name}** is already owned by someone else.`,
-      data: { alreadyOwned: true },
+      message: `This slot is on cooldown after being raided out. Available <t:${Math.floor(slot.cooldownUntil / 1000)}:R>.`,
+      data: {},
       updates: {},
-      log: null,
     };
   }
 
-  // ── Afford check ───────────────────────────
+  const type = BUSINESS_TYPES[slot.typeId];
+  if (!type) return { success: false, message: 'Unknown business type.', data: {}, updates: {} };
+
   if ((player.cash ?? 0) < type.buyCost) {
     return {
       success: false,
       message: `You need **$${type.buyCost.toLocaleString('en-US')}** to claim the **${type.name}**.`,
-      data: { insufficientFunds: true, required: type.buyCost },
+      data: {},
       updates: {},
-      log: null,
     };
   }
 
-  // ── Apply ──────────────────────────────────
   const now = Date.now();
+  await businessRepository.setSlot(serverId, key, {
+    ...slot,
+    ownerId:         discordId,
+    ownerName:       player.username,
+    level:           1,
+    raidCount:       0,
+    lastCollectedAt: now,
+    claimedAt:       now,
+    onCooldown:      false,
+    cooldownUntil:   null,
+  });
 
-  const playerUpdates = {
+  await playerRepository.updatePlayer(serverId, discordId, {
     cash: (player.cash ?? 0) - type.buyCost,
-    businessId,
-  };
-  await playerRepository.updatePlayer(serverId, discordId, playerUpdates);
-
-  await businessRepository.updateSlot(serverId, businessId, {
-    ownerId: discordId,
-    level: 1,
-    lastCollect: now,
-    purchasedAt: now,
-    lastRaidedAt: null,
-    raidCount: 0,
+    businessId: key,
   });
 
   logRepository.write(serverId, {
     discordId,
     actionType: ACTION_TYPES.ECONOMY,
-    actionName: 'business_claim',
-    location: player.state,
-    payload: { businessId, typeId, cost: type.buyCost },
+    actionName: 'business_purchase',
+    location:   player.state,
+    payload:    { typeId: slot.typeId, cost: type.buyCost },
   }).catch(() => {});
 
   return {
     success: true,
-    message: `You claimed the **${type.name}** for **$${type.buyCost.toLocaleString('en-US')}**!`,
-    data: { businessId, typeId, type, level: 1 },
-    updates: playerUpdates,
-    log: { actionType: ACTION_TYPES.ECONOMY, actionName: 'business_claim' },
+    message: `You claimed the **${type.name}** in **${player.state}** for **$${type.buyCost.toLocaleString('en-US')}**!`,
+    data:    { slot, type },
+    updates: {},
   };
 }
 
 /**
- * Collect pending income from the player's owned business.
- * Player must be in the business's home state.
+ * Collect pending income from a business.
+ * Player must be in the same state.
  */
 async function collect(serverId, discordId) {
   const player = await playerRepository.getPlayer(serverId, discordId);
-  if (!player) {
-    return { success: false, message: 'Player not found.', data: {}, updates: {}, log: null };
+  if (!player) return { success: false, message: 'Player not found.', data: {}, updates: {} };
+
+  if (player.jailedUntil && Date.now() < player.jailedUntil) {
+    return { success: false, message: 'You cannot collect while in jail.', data: {}, updates: {} };
   }
 
-  if (!player.businessId) {
-    return { success: false, message: 'You don\'t own a business.', data: { noBusiness: true }, updates: {}, log: null };
+  const key  = slotKey(player.state);
+  const slot = await businessRepository.getSlot(serverId, key);
+
+  if (!slot?.ownerId || slot.ownerId !== discordId) {
+    return { success: false, message: `You don't own the business in **${player.state}**.`, data: {}, updates: {} };
   }
 
-  const slot = await businessRepository.getSlot(serverId, player.businessId);
-  if (!slot || slot.ownerId !== discordId) {
-    return { success: false, message: 'You don\'t own a business.', data: { noBusiness: true }, updates: {}, log: null };
-  }
-
-  const type = BUSINESS_TYPES[slot.typeId];
-
-  // ── Location check ────────────────────────
-  if (player.state !== type.homeState) {
+  // Cooldown check
+  const lastCollect = slot.lastCollectedAt ?? 0;
+  const cooldownMs  = BUSINESS_COLLECT_COOLDOWN * 1000;
+  const nextCollect = lastCollect + cooldownMs;
+  if (Date.now() < nextCollect) {
     return {
       success: false,
-      message: `You need to be in **${type.homeState}** to collect from the **${type.name}**.`,
-      data: { wrongState: true, requiredState: type.homeState },
+      message: `Collect on cooldown. Next collect <t:${Math.floor(nextCollect / 1000)}:R>.`,
+      data: { onCooldown: true, nextCollect },
       updates: {},
-      log: null,
     };
   }
 
-  // ── Cooldown check ────────────────────────
-  const cdState = collectCooldownState(slot);
-  if (cdState.onCooldown) {
-    return {
-      success: false,
-      message: 'Your business income is still building up.',
-      data: { onCooldown: true, nextAvailableMs: cdState.nextAvailableMs },
-      updates: {},
-      log: null,
-    };
+  const pending = calcPending(slot);
+  if (pending <= 0) {
+    return { success: false, message: 'No income to collect yet.', data: {}, updates: {} };
   }
 
-  const pendingCash = calcPendingCash(slot, type);
-  if (pendingCash <= 0) {
-    return {
-      success: false,
-      message: 'There\'s no income to collect yet.',
-      data: { noIncome: true },
-      updates: {},
-      log: null,
-    };
-  }
-
-  const earned = Math.floor(pendingCash);
-  const now    = Date.now();
-
-  const playerUpdates = { cash: (player.cash ?? 0) + earned };
-  await playerRepository.updatePlayer(serverId, discordId, playerUpdates);
-
-  await businessRepository.updateSlot(serverId, player.businessId, { lastCollect: now });
+  const now = Date.now();
+  await businessRepository.setSlot(serverId, key, { ...slot, lastCollectedAt: now });
+  await playerRepository.updatePlayer(serverId, discordId, {
+    cash: (player.cash ?? 0) + pending,
+  });
 
   logRepository.write(serverId, {
     discordId,
     actionType: ACTION_TYPES.ECONOMY,
     actionName: 'business_collect',
-    location: player.state,
-    payload: { businessId: player.businessId, typeId: slot.typeId, earned },
+    location:   player.state,
+    payload:    { typeId: slot.typeId, amount: pending, level: slot.level },
   }).catch(() => {});
 
   return {
     success: true,
-    message: `You collected **$${earned.toLocaleString('en-US')}** from your **${type.name}**!`,
-    data: { businessId: player.businessId, typeId: slot.typeId, type, earned },
-    updates: playerUpdates,
-    log: { actionType: ACTION_TYPES.ECONOMY, actionName: 'business_collect' },
+    message: `Collected **$${pending.toLocaleString('en-US')}** from your **${BUSINESS_TYPES[slot.typeId]?.name}**!`,
+    data:    { pending, slot },
+    updates: {},
   };
 }
 
 /**
- * Upgrade the player's owned business by one level.
+ * Upgrade a business to the next level.
+ * Player must be in the same state.
  */
 async function upgrade(serverId, discordId) {
   const player = await playerRepository.getPlayer(serverId, discordId);
-  if (!player) {
-    return { success: false, message: 'Player not found.', data: {}, updates: {}, log: null };
+  if (!player) return { success: false, message: 'Player not found.', data: {}, updates: {} };
+
+  const key  = slotKey(player.state);
+  const slot = await businessRepository.getSlot(serverId, key);
+
+  if (!slot?.ownerId || slot.ownerId !== discordId) {
+    return { success: false, message: `You don't own the business in **${player.state}**.`, data: {}, updates: {} };
   }
 
-  if (!player.businessId) {
-    return { success: false, message: 'You don\'t own a business.', data: { noBusiness: true }, updates: {}, log: null };
+  if ((slot.level ?? 1) >= 5) {
+    return { success: false, message: 'Your business is already at max level (5).', data: {}, updates: {} };
   }
 
-  const slot = await businessRepository.getSlot(serverId, player.businessId);
-  if (!slot || slot.ownerId !== discordId) {
-    return { success: false, message: 'You don\'t own a business.', data: { noBusiness: true }, updates: {}, log: null };
-  }
-
-  const type = BUSINESS_TYPES[slot.typeId];
-
-  // ── Location check ────────────────────────
-  if (player.state !== type.homeState) {
-    return {
-      success: false,
-      message: `You need to be in **${type.homeState}** to upgrade the **${type.name}**.`,
-      data: { wrongState: true, requiredState: type.homeState },
-      updates: {},
-      log: null,
-    };
-  }
-
-  // ── Max level check ────────────────────────
-  if (slot.level >= type.maxLevel) {
-    return {
-      success: false,
-      message: `Your **${type.name}** is already at max level (${type.maxLevel}).`,
-      data: { maxLevel: true },
-      updates: {},
-      log: null,
-    };
-  }
-
-  const targetLevel = slot.level + 1;
-  const cost        = upgradeCost(type, targetLevel);
-
-  // ── Afford check ───────────────────────────
+  const cost = calcUpgradeCost(slot);
   if ((player.cash ?? 0) < cost) {
     return {
       success: false,
-      message: `You need **$${cost.toLocaleString('en-US')}** to upgrade your **${type.name}** to level ${targetLevel}.`,
-      data: { insufficientFunds: true, required: cost },
+      message: `You need **$${cost.toLocaleString('en-US')}** to upgrade.`,
+      data: {},
       updates: {},
-      log: null,
     };
   }
 
-  const playerUpdates = { cash: (player.cash ?? 0) - cost };
-  await playerRepository.updatePlayer(serverId, discordId, playerUpdates);
-
-  await businessRepository.updateSlot(serverId, player.businessId, { level: targetLevel });
+  const newLevel = (slot.level ?? 1) + 1;
+  await businessRepository.setSlot(serverId, key, { ...slot, level: newLevel });
+  await playerRepository.updatePlayer(serverId, discordId, {
+    cash: (player.cash ?? 0) - cost,
+  });
 
   logRepository.write(serverId, {
     discordId,
     actionType: ACTION_TYPES.ECONOMY,
     actionName: 'business_upgrade',
-    location: player.state,
-    payload: { businessId: player.businessId, typeId: slot.typeId, level: targetLevel, cost },
+    location:   player.state,
+    payload:    { typeId: slot.typeId, newLevel, cost },
   }).catch(() => {});
 
   return {
     success: true,
-    message: `You upgraded your **${type.name}** to **Level ${targetLevel}** for **$${cost.toLocaleString('en-US')}**!`,
-    data: { businessId: player.businessId, typeId: slot.typeId, type, level: targetLevel, cost },
-    updates: playerUpdates,
-    log: { actionType: ACTION_TYPES.ECONOMY, actionName: 'business_upgrade' },
+    message: `Upgraded **${BUSINESS_TYPES[slot.typeId]?.name}** to level **${newLevel}**!`,
+    data:    { newLevel, slot },
+    updates: {},
   };
 }
 
 /**
- * Sell the player's owned business back. Slot resets to unowned.
- * No payout specified by GDD for voluntary sale beyond freeing up the slot;
- * any pending income is forfeited.
+ * Sell a business back at 60% of buy cost (all upgrade value lost).
+ * Player must be in the same state.
  */
 async function sell(serverId, discordId) {
   const player = await playerRepository.getPlayer(serverId, discordId);
-  if (!player) {
-    return { success: false, message: 'Player not found.', data: {}, updates: {}, log: null };
+  if (!player) return { success: false, message: 'Player not found.', data: {}, updates: {} };
+
+  const key  = slotKey(player.state);
+  const slot = await businessRepository.getSlot(serverId, key);
+
+  if (!slot?.ownerId || slot.ownerId !== discordId) {
+    return { success: false, message: `You don't own the business in **${player.state}**.`, data: {}, updates: {} };
   }
 
-  if (!player.businessId) {
-    return { success: false, message: 'You don\'t own a business.', data: { noBusiness: true }, updates: {}, log: null };
-  }
+  const type      = BUSINESS_TYPES[slot.typeId];
+  const sellPrice = Math.floor(type.buyCost * 0.60);
 
-  const slot = await businessRepository.getSlot(serverId, player.businessId);
-  if (!slot || slot.ownerId !== discordId) {
-    return { success: false, message: 'You don\'t own a business.', data: { noBusiness: true }, updates: {}, log: null };
-  }
+  await businessRepository.setSlot(serverId, key, {
+    ...slot,
+    ownerId:         null,
+    ownerName:       null,
+    level:           1,
+    raidCount:       0,
+    lastCollectedAt: null,
+    claimedAt:       null,
+    onCooldown:      false,
+    cooldownUntil:   null,
+  });
 
-  const type = BUSINESS_TYPES[slot.typeId];
-
-  const playerUpdates = { businessId: null };
-  await playerRepository.updatePlayer(serverId, discordId, playerUpdates);
-
-  await businessRepository.resetSlot(serverId, player.businessId);
+  await playerRepository.updatePlayer(serverId, discordId, {
+    cash:       (player.cash ?? 0) + sellPrice,
+    businessId: null,
+  });
 
   logRepository.write(serverId, {
     discordId,
     actionType: ACTION_TYPES.ECONOMY,
     actionName: 'business_sell',
-    location: player.state,
-    payload: { businessId: player.businessId, typeId: slot.typeId, level: slot.level },
+    location:   player.state,
+    payload:    { typeId: slot.typeId, sellPrice },
   }).catch(() => {});
 
   return {
     success: true,
-    message: `You walked away from your **${type.name}**. The slot is now unowned.`,
-    data: { businessId: player.businessId, typeId: slot.typeId, type },
-    updates: playerUpdates,
-    log: { actionType: ACTION_TYPES.ECONOMY, actionName: 'business_sell' },
+    message: `Sold your **${type.name}** for **$${sellPrice.toLocaleString('en-US')}**.`,
+    data:    { sellPrice, slot },
+    updates: {},
   };
 }
 
 /**
- * Attempt to raid a business slot (illegal businesses only).
- *
- * @param {string} serverId
- * @param {string} discordId  - attacker
- * @param {string} businessId - target slot
+ * Raid an illegal business in the player's current state.
+ * Bullets always removed. Pending cash stolen on success.
+ * 5 successful raids = owner loses business, slot moves to new state on 1hr cooldown.
  */
-async function raid(serverId, discordId, businessId) {
-  const attacker = await playerRepository.getPlayer(serverId, discordId);
-  if (!attacker) {
-    return { success: false, message: 'Player not found.', data: {}, updates: {}, log: null };
+async function raid(serverId, discordId) {
+  const player = await playerRepository.getPlayer(serverId, discordId);
+  if (!player) return { success: false, message: 'Player not found.', data: {}, updates: {} };
+
+  if (player.jailedUntil && Date.now() < player.jailedUntil) {
+    return { success: false, message: 'You cannot raid while in jail.', data: {}, updates: {} };
+  }
+  if (player.hospitalizedUntil && Date.now() < player.hospitalizedUntil) {
+    return { success: false, message: 'You cannot raid while in hospital.', data: {}, updates: {} };
   }
 
-  // ── Status checks ─────────────────────────
-  if (attacker.jailedUntil && Date.now() < attacker.jailedUntil) {
-    return { success: false, message: 'You are in jail.', data: { jailed: true, jailedUntil: attacker.jailedUntil }, updates: {}, log: null };
-  }
-  if (attacker.hospitalizedUntil && Date.now() < attacker.hospitalizedUntil) {
-    return { success: false, message: 'You are in hospital.', data: { hospitalized: true, hospitalizedUntil: attacker.hospitalizedUntil }, updates: {}, log: null };
-  }
-  if (attacker.travelling && attacker.travelEndTime > Date.now()) {
-    return { success: false, message: 'You are travelling.', data: { travelling: true }, updates: {}, log: null };
+  const key  = slotKey(player.state);
+  const slot = await businessRepository.getSlot(serverId, key);
+
+  if (!slot?.ownerId) {
+    return { success: false, message: `There is no owned business in **${player.state}** to raid.`, data: {}, updates: {} };
   }
 
-  const slot = await businessRepository.getSlot(serverId, businessId);
-  if (!slot) {
-    return { success: false, message: 'Business slot not found.', data: {}, updates: {}, log: null };
+  if (slot.ownerId === discordId) {
+    return { success: false, message: `You can't raid your own business.`, data: {}, updates: {} };
   }
 
   const type = BUSINESS_TYPES[slot.typeId];
+  if (!type || type.category !== 'illegal') {
+    return { success: false, message: `Legal businesses cannot be raided.`, data: {}, updates: {} };
+  }
 
-  // ── Raidable check ─────────────────────────
-  const rChance = raidChance(type, slot.level);
-  if (rChance == null) {
+  // Raid cooldown check
+  const lastRaided = slot.lastRaidedAt ?? 0;
+  const raidCoolMs = BUSINESS_RAID_COOLDOWN * 1000;
+  const nextRaid   = lastRaided + raidCoolMs;
+  if (Date.now() < nextRaid) {
     return {
       success: false,
-      message: `The **${type.name}** can't be raided.`,
-      data: { notRaidable: true },
+      message: `This business was recently raided. Next raid <t:${Math.floor(nextRaid / 1000)}:R>.`,
+      data:    { onCooldown: true, nextRaid },
       updates: {},
-      log: null,
     };
   }
 
-  // ── Location check ────────────────────────
-  if (attacker.state !== type.homeState) {
+  const bulletsRequired = calcRaidBullets(slot);
+  const playerBullets   = player.bullets ?? 0;
+
+  if (playerBullets < bulletsRequired) {
     return {
       success: false,
-      message: `You need to be in **${type.homeState}** to raid the **${type.name}**.`,
-      data: { wrongState: true, requiredState: type.homeState },
+      message: `You need **${bulletsRequired} bullets** to raid a level ${slot.level} business. You have **${playerBullets}**.`,
+      data:    { bulletsRequired, playerBullets },
       updates: {},
-      log: null,
     };
   }
 
-  // ── Ownership check ────────────────────────
-  if (!slot.ownerId) {
-    return {
-      success: false,
-      message: `The **${type.name}** is unowned — nothing to raid.`,
-      data: { unowned: true },
-      updates: {},
-      log: null,
-    };
-  }
-  if (slot.ownerId === discordId) {
-    return {
-      success: false,
-      message: 'You can\'t raid your own business.',
-      data: { ownBusiness: true },
-      updates: {},
-      log: null,
-    };
-  }
+  // Deduct bullets regardless of outcome
+  await playerRepository.updatePlayer(serverId, discordId, {
+    bullets: playerBullets - bulletsRequired,
+  });
 
-  // ── Cooldown check ────────────────────────
-  const raidCd = raidCooldownState(slot);
-  if (raidCd.onCooldown) {
-    return {
-      success: false,
-      message: 'This business was raided recently — it\'s too well-guarded right now.',
-      data: { onCooldown: true, nextAvailableMs: raidCd.nextAvailableMs },
-      updates: {},
-      log: null,
-    };
-  }
-
-  // ── Bullets check ──────────────────────────
-  const bulletsRequired = raidBulletsRequired(slot.level);
-  if ((attacker.bullets ?? 0) < bulletsRequired) {
-    return {
-      success: false,
-      message: `You need **${bulletsRequired} bullets** to raid the **${type.name}** at level ${slot.level}.`,
-      data: { insufficientBullets: true, required: bulletsRequired },
-      updates: {},
-      log: null,
-    };
-  }
-
-  // ── Resolve ────────────────────────────────
-  const now  = Date.now();
-  const roll = Math.random();
-  const success = roll < rChance;
-
-  const attackerUpdates = {
-    bullets: (attacker.bullets ?? 0) - bulletsRequired,
-  };
+  const raidChance = calcRaidChance(slot);
+  const success    = Math.random() < raidChance;
+  const now        = Date.now();
 
   if (!success) {
-    // Failed raid — bullets still spent, cooldown still applies to the slot
-    await playerRepository.updatePlayer(serverId, discordId, attackerUpdates);
-    await businessRepository.updateSlot(serverId, businessId, { lastRaidedAt: now });
+    await businessRepository.setSlot(serverId, key, { ...slot, lastRaidedAt: now });
 
     logRepository.write(serverId, {
       discordId,
-      actionType: ACTION_TYPES.COMBAT,
+      actionType: ACTION_TYPES.ECONOMY,
       actionName: 'business_raid',
-      location: attacker.state,
-      payload: { businessId, typeId: slot.typeId, success: false, bulletsSpent: bulletsRequired, raidChance: +rChance.toFixed(3) },
+      location:   player.state,
+      payload:    { typeId: slot.typeId, success: false, bulletsUsed: bulletsRequired },
     }).catch(() => {});
 
     return {
       success: false,
-      message: `Your raid on the **${type.name}** failed! You spent **${bulletsRequired} bullets**.`,
-      data: { businessId, typeId: slot.typeId, type, bulletsSpent: bulletsRequired, raidChance: rChance },
-      updates: attackerUpdates,
-      log: { actionType: ACTION_TYPES.COMBAT, actionName: 'business_raid' },
+      message: `Your raid on the **${type.name}** failed! **${bulletsRequired} bullets** spent.`,
+      data:    { raidSuccess: false, bulletsUsed: bulletsRequired },
+      updates: {},
     };
   }
 
-  // ── Successful raid ─────────────────────────
-  const newRaidCount = (slot.raidCount ?? 0) + 1;
-  const slotLost     = newRaidCount >= BUSINESS_RAIDS_TO_LOSE;
+  // ── Raid success ──────────────────────────
+  const pendingStolen = calcPending(slot);
+  const newRaidCount  = (slot.raidCount ?? 0) + 1;
 
-  await playerRepository.updatePlayer(serverId, discordId, attackerUpdates);
+  // Give raider the stolen cash
+  await playerRepository.updatePlayer(serverId, discordId, {
+    cash: (player.cash ?? 0) + pendingStolen,
+  });
 
-  if (slotLost) {
-    // Owner loses the business — slot resets to unowned
-    const previousOwnerId = slot.ownerId;
-    await businessRepository.resetSlot(serverId, businessId);
+  if (newRaidCount >= BUSINESS_RAIDS_TO_LOSE) {
+    // Owner loses business — move slot to new empty state on 1hr cooldown
+    const newState   = await pickEmptyIllegalState(serverId, player.state);
+    const newKey     = slotKey(newState);
+    const cooldownUntil = now + 3600000;
 
-    const owner = await playerRepository.getPlayer(serverId, previousOwnerId);
-    if (owner && owner.businessId === businessId) {
-      await playerRepository.updatePlayer(serverId, previousOwnerId, { businessId: null });
+    // Reset current slot to unowned
+    await businessRepository.setSlot(serverId, key, {
+      ...slot,
+      ownerId:         null,
+      ownerName:       null,
+      level:           1,
+      raidCount:       0,
+      lastCollectedAt: null,
+      claimedAt:       null,
+      lastRaidedAt:    now,
+      onCooldown:      false,
+      cooldownUntil:   null,
+    });
+
+    // Create the new slot in the new state on cooldown
+    await businessRepository.setSlot(serverId, newKey, {
+      key:             newKey,
+      state:           newState,
+      typeId:          slot.typeId,
+      ownerId:         null,
+      ownerName:       null,
+      level:           1,
+      raidCount:       0,
+      lastCollectedAt: null,
+      lastRaidedAt:    now,
+      claimedAt:       null,
+      onCooldown:      true,
+      cooldownUntil,
+      pendingCash:     0,
+    });
+
+    // Remove business from owner
+    const owner = await playerRepository.getPlayer(serverId, slot.ownerId);
+    if (owner) {
+      await playerRepository.updatePlayer(serverId, slot.ownerId, { businessId: null });
     }
 
     logRepository.write(serverId, {
       discordId,
-      actionType: ACTION_TYPES.COMBAT,
+      actionType: ACTION_TYPES.ECONOMY,
       actionName: 'business_raid',
-      location: attacker.state,
-      payload: { businessId, typeId: slot.typeId, success: true, slotLost: true, bulletsSpent: bulletsRequired, raidChance: +rChance.toFixed(3) },
+      location:   player.state,
+      payload:    { typeId: slot.typeId, success: true, bulletsUsed: bulletsRequired, pendingStolen, ownerEvicted: true, newState },
     }).catch(() => {});
 
     return {
       success: true,
-      message: `You raided the **${type.name}** successfully! It's been raided ${BUSINESS_RAIDS_TO_LOSE} times — the owner has lost the business! The slot is now unowned.`,
-      data: { businessId, typeId: slot.typeId, type, bulletsSpent: bulletsRequired, raidChance: rChance, slotLost: true, raidCount: newRaidCount },
-      updates: attackerUpdates,
-      log: { actionType: ACTION_TYPES.COMBAT, actionName: 'business_raid' },
+      message: `Raid successful! You stole **$${pendingStolen.toLocaleString('en-US')}** and the owner has been **evicted** after 5 raids! The business has moved to **${newState}**.`,
+      data:    { raidSuccess: true, pendingStolen, bulletsUsed: bulletsRequired, ownerEvicted: true, newRaidCount },
+      updates: {},
     };
   }
 
-  // Successful raid, owner keeps the business
-  await businessRepository.updateSlot(serverId, businessId, {
-    lastRaidedAt: now,
-    raidCount: newRaidCount,
+  // Normal successful raid — owner keeps business
+  await businessRepository.setSlot(serverId, key, {
+    ...slot,
+    raidCount:       newRaidCount,
+    lastCollectedAt: now, // pending income cleared
+    lastRaidedAt:    now,
   });
 
   logRepository.write(serverId, {
     discordId,
-    actionType: ACTION_TYPES.COMBAT,
+    actionType: ACTION_TYPES.ECONOMY,
     actionName: 'business_raid',
-    location: attacker.state,
-    payload: { businessId, typeId: slot.typeId, success: true, slotLost: false, bulletsSpent: bulletsRequired, raidChance: +rChance.toFixed(3) },
+    location:   player.state,
+    payload:    { typeId: slot.typeId, success: true, bulletsUsed: bulletsRequired, pendingStolen, newRaidCount },
   }).catch(() => {});
 
   return {
     success: true,
-    message: `You raided the **${type.name}** successfully! (${newRaidCount}/${BUSINESS_RAIDS_TO_LOSE} raids against this business)`,
-    data: { businessId, typeId: slot.typeId, type, bulletsSpent: bulletsRequired, raidChance: rChance, slotLost: false, raidCount: newRaidCount },
-    updates: attackerUpdates,
-    log: { actionType: ACTION_TYPES.COMBAT, actionName: 'business_raid' },
+    message: `Raid successful! Stole **$${pendingStolen.toLocaleString('en-US')}** from the **${type.name}**. Owner has been raided **${newRaidCount}/${BUSINESS_RAIDS_TO_LOSE}** times.`,
+    data:    { raidSuccess: true, pendingStolen, bulletsUsed: bulletsRequired, ownerEvicted: false, newRaidCount },
+    updates: {},
   };
 }
 
 module.exports = {
   initSlots,
-  getAllSlotsView,
-  getBusinessesInState,
+  getBusinessState,
   claim,
   collect,
   upgrade,
   sell,
   raid,
+  calcPending,
+  calcUpgradeCost,
+  calcRaidBullets,
+  calcRaidChance,
+  slotKey,
 };

@@ -1,147 +1,108 @@
 // ─────────────────────────────────────────────
 //  businessPanel.js  —  Routes panel_business_* interactions.
-//  Rule: NO game logic. NO direct DB calls beyond simple reads
-//  needed for routing/display.
+//  Rule: NO game logic. NO DB calls beyond repository.
 //  Defer → call service → render result.
-//
-//  KEY BUG NOTE: "back" buttons on business screens use
-//  panel_back_state (handled by state/navigation panel), NOT
-//  panel_state — that customId is reserved for travel/state nav.
 // ─────────────────────────────────────────────
 
-const businessService  = require('../services/businessService');
-const playerRepository = require('../repositories/playerRepository');
-const businessRepository = require('../repositories/businessRepository');
+const businessService = require('../services/businessService');
 const {
-  renderBusinessList,
-  renderBusinessManage,
+  renderBusinessHome,
+  renderBusinessDetail,
   renderBusinessResult,
-  renderRaidResult,
 } = require('./renderers/businessRenderer');
 const embeds = require('../utils/embeds');
-
-// ── Helpers ───────────────────────────────────
 
 function safeFollowUp(interaction, payload) {
   return interaction.followUp({ ...payload, ephemeral: true }).catch(() => {});
 }
 
-async function loadOwnedSlot(serverId, player) {
-  if (!player.businessId) return null;
-  const slot = await businessRepository.getSlot(serverId, player.businessId);
-  if (!slot) return null;
-  // Re-use businessService's enrichment via getAllSlotsView, but that's a
-  // full scan — for a single slot we can enrich inline by re-fetching the
-  // view list and filtering. Simpler: call getBusinessesInState on the
-  // slot's own state.
-  const slots = await businessService.getBusinessesInState(serverId, slot.state);
-  return slots.find(s => s.businessId === slot.businessId) ?? null;
-}
-
-// ── Main handler ──────────────────────────────
-
 async function handle(interaction) {
   const { customId } = interaction;
-  const serverId      = interaction.guildId;
-  const discordId     = interaction.user.id;
+  const serverId     = interaction.guildId;
+  const discordId    = interaction.user.id;
 
-  // ── panel_business (root — list slots in current state) ──
+  // ── panel_business (root) ─────────────────
   if (customId === 'panel_business' || customId === 'panelm_business') {
     await interaction.deferUpdate();
-
-    const player = await playerRepository.getPlayer(serverId, discordId);
-    if (!player) {
-      return safeFollowUp(interaction, { embeds: [embeds.error('No player found. Use /start to create your character.')] });
+    const result = await businessService.getBusinessState(serverId, discordId);
+    if (!result.success) {
+      return safeFollowUp(interaction, { embeds: [embeds.error(result.message)] });
     }
-
-    const slots   = await businessService.getBusinessesInState(serverId, player.state);
-    const payload = renderBusinessList(slots, player);
-    return interaction.editReply(payload);
+    return interaction.editReply(renderBusinessHome(result.data));
   }
 
-  // ── panel_business_manage (owner's slot) ──
-  if (customId === 'panel_business_manage') {
+  // ── panel_business_detail — owned business detail ──
+  if (customId === 'panel_business_detail') {
     await interaction.deferUpdate();
-
-    const player = await playerRepository.getPlayer(serverId, discordId);
-    if (!player) {
-      return safeFollowUp(interaction, { embeds: [embeds.error('No player found.')] });
+    const result = await businessService.getBusinessState(serverId, discordId);
+    if (!result.success || !result.data.playerSlot) {
+      return interaction.editReply(renderBusinessResult({ success: false, message: 'You don\'t own a business.' }));
     }
-
-    if (!player.businessId) {
-      return safeFollowUp(interaction, { embeds: [embeds.error('You don\'t own a business.')] });
-    }
-
-    const slot = await loadOwnedSlot(serverId, player);
-    if (!slot) {
-      return safeFollowUp(interaction, { embeds: [embeds.error('Your business could not be found.')] });
-    }
-
-    const payload = renderBusinessManage(slot);
-    return interaction.editReply(payload);
+    const { playerSlot } = result.data;
+    const pending     = businessService.calcPending(playerSlot);
+    const upgradeCost = businessService.calcUpgradeCost(playerSlot);
+    const raidChance  = businessService.calcRaidChance(playerSlot);
+    return interaction.editReply(renderBusinessDetail(playerSlot, pending, upgradeCost, raidChance));
   }
 
-  // ── panel_business_claim_{typeId} ─────────
-  if (customId.startsWith('panel_business_claim_')) {
-    const typeId = customId.replace('panel_business_claim_', '');
+  // ── panel_business_claim ──────────────────
+  if (customId === 'panel_business_claim') {
     await interaction.deferUpdate();
-
-    const result  = await businessService.claim(serverId, discordId, typeId);
-    const payload = renderBusinessResult(result);
-    return interaction.editReply(payload);
+    const result = await businessService.claim(serverId, discordId);
+    if (result.success) {
+      const state  = await businessService.getBusinessState(serverId, discordId);
+      return interaction.editReply(renderBusinessHome(state.data));
+    }
+    return interaction.editReply(renderBusinessResult(result));
   }
 
   // ── panel_business_collect ────────────────
   if (customId === 'panel_business_collect') {
     await interaction.deferUpdate();
-
-    const result  = await businessService.collect(serverId, discordId);
-    const payload = renderBusinessResult(result);
-    return interaction.editReply(payload);
+    const result = await businessService.collect(serverId, discordId);
+    if (result.success) {
+      const state = await businessService.getBusinessState(serverId, discordId);
+      return interaction.editReply(renderBusinessHome(state.data));
+    }
+    return interaction.editReply(renderBusinessResult(result));
   }
 
   // ── panel_business_upgrade ────────────────
   if (customId === 'panel_business_upgrade') {
     await interaction.deferUpdate();
-
-    const result  = await businessService.upgrade(serverId, discordId);
-    const payload = renderBusinessResult(result);
-    return interaction.editReply(payload);
+    const result = await businessService.upgrade(serverId, discordId);
+    if (result.success) {
+      const state = await businessService.getBusinessState(serverId, discordId);
+      return interaction.editReply(renderBusinessHome(state.data));
+    }
+    return interaction.editReply(renderBusinessResult(result));
   }
 
   // ── panel_business_sell ───────────────────
   if (customId === 'panel_business_sell') {
     await interaction.deferUpdate();
-
-    const result  = await businessService.sell(serverId, discordId);
-    const payload = renderBusinessResult(result);
-    return interaction.editReply(payload);
+    const result = await businessService.sell(serverId, discordId);
+    if (result.success) {
+      const state = await businessService.getBusinessState(serverId, discordId);
+      return interaction.editReply(renderBusinessHome(state.data));
+    }
+    return interaction.editReply(renderBusinessResult(result));
   }
 
-  // ── panel_business_raid_{businessId} ──────
-  if (customId.startsWith('panel_business_raid_')) {
-    const businessId = customId.replace('panel_business_raid_', '');
+  // ── panel_business_raid ───────────────────
+  if (customId === 'panel_business_raid') {
     await interaction.deferUpdate();
-
-    const result  = await businessService.raid(serverId, discordId, businessId);
-    const payload = renderRaidResult(result);
-    return interaction.editReply(payload);
-  }
-
-  // ── panel_business_view_{typeId} (disabled button — no-op) ──
-  if (customId.startsWith('panel_business_view_')) {
-    return; // disabled button, should never fire
+    const result = await businessService.raid(serverId, discordId);
+    return interaction.editReply(renderBusinessResult(result));
   }
 
   console.warn('[businessPanel] Unhandled customId:', customId);
 }
 
-// No modals in business panel
 async function handleModal(interaction) {
   console.warn('[businessPanel] Unexpected modal:', interaction.customId);
 }
 
-// No select menus in business panel
 async function handleSelect(interaction) {
   console.warn('[businessPanel] Unexpected select:', interaction.customId);
 }
