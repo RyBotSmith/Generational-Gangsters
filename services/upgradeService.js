@@ -47,8 +47,13 @@ function getUpgradeValue(upgradeId, level) {
 /**
  * Get full upgrade state for a player — all upgrades with cost, level, value.
  */
+// Upgrades shown in the panel — cooldown upgrades are shown on their respective panels
+const PANEL_UPGRADES = ['bank_vault', 'booze_capacity', 'drug_capacity', 'garage_size'];
+
 function getAllUpgrades(player) {
-  return Object.values(UPGRADES).map(upg => {
+  return Object.values(UPGRADES)
+    .filter(upg => PANEL_UPGRADES.includes(upg.id))
+    .map(upg => {
     const currentLevel = player.upgrades?.[upg.id] ?? 0;
     const maxed        = currentLevel >= upg.maxLevel;
     const nextCost     = maxed ? null : getUpgradeCost(upg.id, currentLevel);

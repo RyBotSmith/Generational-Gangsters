@@ -7,7 +7,7 @@ const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const embeds     = require('../../utils/embeds');
 const { formatCash } = require('../../utils/helpers');
 
-const BUY_PRESETS = [1, 5, 10, 25];
+const BUY_PRESETS = [1, 5, 10]; // Max is added dynamically per product/capacity
 
 // ── Trafficking home ──────────────────────────
 
@@ -99,11 +99,23 @@ function renderBoozePanel(data) {
       row.addComponents(
         new ButtonBuilder()
           .setCustomId(`panel_traffic_buy_${product.id}_${qty}`)
-          .setLabel(`Buy ${qty} ${product.name} (${formatCash(cost)})`)
+          .setLabel(`Buy ${qty} (${formatCash(cost)})`)
           .setStyle(ButtonStyle.Success)
           .setDisabled(onBuyCooldown || !canBuy || qty > space || (player.cash ?? 0) < cost)
       );
     });
+
+    // Max button
+    if (space > 0) {
+      const maxCost = (prices?.buy ?? 0) * space;
+      row.addComponents(
+        new ButtonBuilder()
+          .setCustomId(`panel_traffic_buy_${product.id}_${space}`)
+          .setLabel(`Max (${space}) — ${formatCash(maxCost)}`)
+          .setStyle(ButtonStyle.Primary)
+          .setDisabled(onBuyCooldown || (player.cash ?? 0) < maxCost)
+      );
+    }
 
     rows.push(row);
   }
@@ -199,11 +211,22 @@ function renderDrugsPanel(data) {
       row.addComponents(
         new ButtonBuilder()
           .setCustomId(`panel_traffic_buy_${product.id}_${qty}`)
-          .setLabel(`Buy ${qty} ${product.name} (${formatCash(cost)})`)
+          .setLabel(`Buy ${qty} (${formatCash(cost)})`)
           .setStyle(ButtonStyle.Danger)
           .setDisabled(onBuyCooldown || qty > space || (player.cash ?? 0) < cost)
       );
     });
+
+    if (space > 0) {
+      const maxCost = (prices?.buy ?? 0) * space;
+      row.addComponents(
+        new ButtonBuilder()
+          .setCustomId(`panel_traffic_buy_${product.id}_${space}`)
+          .setLabel(`Max (${space}) — ${formatCash(maxCost)}`)
+          .setStyle(ButtonStyle.Primary)
+          .setDisabled(onBuyCooldown || (player.cash ?? 0) < maxCost)
+      );
+    }
 
     rows.push(row);
   }

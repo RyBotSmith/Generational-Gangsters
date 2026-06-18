@@ -192,9 +192,15 @@ async function buy(serverId, discordId, productId, quantity) {
     return { success: false, message: `You need a higher rank to traffic ${product.name}.`, data: {}, updates: {} };
   }
 
+  // Capacity check — declare type first
+  const type     = product.type;
+  const capacity = getCapacity(player, type);
+  const carried  = getCarried(player, type);
+  const space    = capacity - carried;
+
   // Buy cooldown check (set when player travels with stock)
-  const cooldownKey = type === 'booze' ? 'booze_buy' : 'drug_buy';
-  const cooldownUntil = player.cooldowns?.[cooldownKey] ?? 0;
+  const cooldownKey    = type === 'booze' ? 'booze_buy' : 'drug_buy';
+  const cooldownUntil  = player.cooldowns?.[cooldownKey] ?? 0;
   if (Date.now() < cooldownUntil) {
     return {
       success: false,
@@ -203,12 +209,6 @@ async function buy(serverId, discordId, productId, quantity) {
       updates: {},
     };
   }
-
-  // Capacity check
-  const type     = product.type;
-  const capacity = getCapacity(player, type);
-  const carried  = getCarried(player, type);
-  const space    = capacity - carried;
 
   if (space <= 0) {
     return { success: false, message: `Your ${type} capacity is full (${carried}/${capacity}).`, data: {}, updates: {} };
