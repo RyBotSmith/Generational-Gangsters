@@ -36,10 +36,14 @@ function safeFollowUp(interaction, payload) {
 // ── Cooldown state helper (pure read — no DB needed beyond player doc) ──
 
 function buildCdState(player) {
-  const lastUsed    = player.cooldowns?.gta ?? null;
-  const cooldownMs  = 300 * 1000; // GTA_COOLDOWN from constants, hardcoded here to avoid import
-  const nextMs      = lastUsed ? lastUsed + cooldownMs : 0;
-  const remainingMs = Math.max(0, nextMs - Date.now());
+  const { GTA_COOLDOWN, UPGRADES } = require('../data/constants');
+  const upgradeLevel  = player?.upgrades?.gta_cooldown ?? 0;
+  const upgradeReduce = upgradeLevel * (UPGRADES.gta_cooldown?.valuePerLevel ?? 30) * 1000;
+  const prestige4Mult = player?.prestige4Perk === 'cooldown' ? 0.80 : 1.0;
+  const cooldownMs    = Math.max(60000, Math.floor((GTA_COOLDOWN * 1000 - upgradeReduce) * prestige4Mult));
+  const lastUsed      = player.cooldowns?.gta ?? null;
+  const nextMs        = lastUsed ? lastUsed + cooldownMs : 0;
+  const remainingMs   = Math.max(0, nextMs - Date.now());
   return { onCooldown: remainingMs > 0, cooldownRemainingMs: remainingMs, nextAvailableMs: nextMs };
 }
 

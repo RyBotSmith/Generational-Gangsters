@@ -59,13 +59,16 @@ function pickRandomCar(rIdx) {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-function getGtaCooldownMs() {
-  return GTA_COOLDOWN * 1000;
+function getGtaCooldownMs(player) {
+  const upgradeLevel  = player?.upgrades?.gta_cooldown ?? 0;
+  const upgradeReduce = upgradeLevel * (UPGRADES.gta_cooldown?.valuePerLevel ?? 30) * 1000;
+  const prestige4Mult = player?.prestige4Perk === 'cooldown' ? 0.80 : 1.0;
+  return Math.max(60000, Math.floor((GTA_COOLDOWN * 1000 - upgradeReduce) * prestige4Mult));
 }
 
 function gtaCooldownState(player) {
   const lastUsed    = player.cooldowns?.gta ?? null;
-  const nextMs      = lastUsed ? lastUsed + getGtaCooldownMs() : 0;
+  const nextMs      = lastUsed ? lastUsed + getGtaCooldownMs(player) : 0;
   const remainingMs = Math.max(0, nextMs - Date.now());
   return { onCooldown: remainingMs > 0, cooldownRemainingMs: remainingMs, nextAvailableMs: nextMs };
 }

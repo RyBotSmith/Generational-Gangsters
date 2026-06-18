@@ -94,14 +94,27 @@ function renderProfileHome(player) {
       {
         name: '⬆️ Upgrade Buffs',
         value: [
-          `Crime cooldown: **-${crimeCdReduction}%**`,
-          `GTA cooldown: **-${gtaCdReduction}s**`,
+          `Crime cooldown: **-${crimeCdReduction}%**${player.prestige4Perk === 'cooldown' ? ' + **-20% (P4)**' : ''}`,
+          `GTA cooldown: **-${gtaCdReduction}s**${player.prestige4Perk === 'cooldown' ? ' + **-20% (P4)**' : ''}`,
           `Bank limit: **${formatCash(bankLimit)}**`,
-          `Booze capacity: **${boozeCapacity} cases** (+${boozeCapacity - (UPGRADES.booze_capacity?.baseValue ?? 10)} from upgrades)`,
-          `Drug capacity: **${drugCapacity} units** (+${drugCapacity - (UPGRADES.drug_capacity?.baseValue ?? 10)} from upgrades)`,
+          `Booze capacity: **${boozeCapacity} cases** (+${boozeCapacity - (UPGRADES.booze_capacity?.baseValue ?? 10)} from upgrades${player.prestige4Perk === 'capacity' ? ' +20 P4' : ''})`,
+          `Drug capacity: **${drugCapacity} units** (+${drugCapacity - (UPGRADES.drug_capacity?.baseValue ?? 10)} from upgrades${player.prestige4Perk === 'capacity' ? ' +20 P4' : ''})`,
         ].join('\n'),
         inline: false,
       },
+
+      // ── Prestige buffs (only shown if prestiged)
+      ...((player.prestige ?? 0) > 0 ? [{
+        name: '🌟 Prestige Buffs',
+        value: [
+          ...((player.prestigeAllocations ?? []).map((a, i) =>
+            `P${i + 1}: **+10% ${a === 'crime' ? 'Crime' : 'GTA'} success**`
+          )),
+          ...(player.prestige4Perk ? [`P4: **${player.prestige4Perk === 'cooldown' ? 'Cooldown Mastery (-20% all cooldowns)' : 'Storage Empire (+20 capacity)'}**`] : []),
+          ...(player.prestige5Perk ? [`P5: **${player.prestige5Perk === 'bullets' ? '10,000 Bullets' : '$5,000,000 Cash'}**`] : []),
+        ].join('\n') || 'None',
+        inline: false,
+      }] : []),
 
       // ── Bodyguards
       { name: '🛡️ Bodyguards', value: bgLines.join('\n'), inline: false },

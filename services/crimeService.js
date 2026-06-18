@@ -9,6 +9,7 @@ const {
   RANKS,
   WEAPONS,
   VEHICLES,
+  UPGRADES,
   CRIME_JAIL_CHANCE,
   CREW_UPGRADES,
   ACTION_TYPES,
@@ -56,12 +57,13 @@ function rankIndex(player) {
 }
 
 /**
- * Effective crime cooldown in ms for a given crime, respecting crew upgrade.
- * collect_cooldown upgrade does NOT apply to crimes — only to businesses.
+ * Effective crime cooldown in ms for a given crime, respecting upgrades and prestige 4.
  */
-function effectiveCooldownMs(crime) {
-  // No crew reduction on crime cooldowns (only collect_cooldown affects businesses)
-  return crime.cooldown * 1000;
+function effectiveCooldownMs(crime, player) {
+  const upgradeLevel   = player?.upgrades?.crime_cooldown ?? 0;
+  const upgradeMult    = 1 - (upgradeLevel * (UPGRADES.crime_cooldown?.valuePerLevel ?? 0.08));
+  const prestige4Mult  = player?.prestige4Perk === 'cooldown' ? 0.80 : 1.0;
+  return Math.floor(crime.cooldown * 1000 * upgradeMult * prestige4Mult);
 }
 
 // ── Public API ────────────────────────────────
@@ -78,7 +80,7 @@ function getAllCrimes(player) {
     .filter(c => c.rankRequired <= rank)
     .map(c => {
       const lastUsed = getNestedField(player, `cooldowns.crime_${c.id}`);
-      const cooldownMs = effectiveCooldownMs(c);
+      const cooldownMs = effectiveCooldownMs(c, player);
       const nextAvailableMs = lastUsed ? lastUsed + cooldownMs : 0;
       const remainingMs     = Math.max(0, nextAvailableMs - now);
 
@@ -100,7 +102,7 @@ function getCrimeCooldown(player, crimeId) {
   if (!crime) return null;
 
   const lastUsed    = getNestedField(player, `cooldowns.crime_${crimeId}`);
-  const cooldownMs  = effectiveCooldownMs(crime);
+  const cooldownMs  = effectiveCooldownMs(crime, player);
   const nextMs      = lastUsed ? lastUsed + cooldownMs : 0;
   const remainingMs = Math.max(0, nextMs - Date.now());
 

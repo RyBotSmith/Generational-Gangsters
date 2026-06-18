@@ -108,14 +108,13 @@ function getRankIndex(player) {
 }
 
 function getCapacity(player, type) {
-  const upg = player.upgrades ?? {};
+  const upg  = player.upgrades ?? {};
   const base = type === 'booze'
     ? (UPGRADES.booze_capacity?.baseValue ?? 10) + (upg.booze_capacity ?? 0) * (UPGRADES.booze_capacity?.valuePerLevel ?? 5)
     : (UPGRADES.drug_capacity?.baseValue  ?? 10) + (upg.drug_capacity  ?? 0) * (UPGRADES.drug_capacity?.valuePerLevel  ?? 5);
 
-  // Business bonus
-  // Drug Lab +5 drug capacity, Bar +5 booze capacity handled here if needed
-  return base;
+  const prestige4Bonus = player.prestige4Perk === 'capacity' ? 20 : 0;
+  return base + prestige4Bonus;
 }
 
 function getCarried(player, type) {
