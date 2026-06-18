@@ -5,6 +5,7 @@
 // ─────────────────────────────────────────────
 
 const { ACTION_TYPES, UPGRADES } = require('../data/constants');
+const { displayName } = require('../utils/helpers');
 const playerRepository = require('../repositories/playerRepository');
 const logRepository    = require('../repositories/logRepository');
 
@@ -154,7 +155,7 @@ async function transfer(serverId, discordId, targetId, amount) {
   if (!target) return { success: false, message: 'Target player not found.', data: {}, updates: {}, log: null };
 
   if (!target.alive) {
-    return { success: false, message: `**${target.username}** is in hospital. Transfers to dead players are not allowed.`, data: {}, updates: {}, log: null };
+    return { success: false, message: `**${displayName(target)}** is in hospital. Transfers to dead players are not allowed.`, data: {}, updates: {}, log: null };
   }
 
   const fee        = Math.ceil(amount * 0.05);
@@ -192,7 +193,7 @@ async function transfer(serverId, discordId, targetId, amount) {
     actionType: ACTION_TYPES.ECONOMY,
     actionName: 'bank_transfer',
     location:   player.state,
-    payload:    { targetId, targetName: target.username, amount, fee, toReceive },
+    payload:    { targetId, targetName: displayName(target), amount, fee, toReceive },
   }).catch(() => {});
 
   const overflowMsg = overflow > 0
@@ -201,8 +202,8 @@ async function transfer(serverId, discordId, targetId, amount) {
 
   return {
     success: true,
-    message: `Transferred **$${amount.toLocaleString('en-US')}** to **${target.username}** (fee: **$${fee.toLocaleString('en-US')}**).${overflowMsg}`,
-    data: { amount, fee, toReceive, overflow, targetName: target.username },
+    message: `Transferred **$${amount.toLocaleString('en-US')}** to **${displayName(target)}** (fee: **$${fee.toLocaleString('en-US')}**).${overflowMsg}`,
+    data: { amount, fee, toReceive, overflow, targetName: displayName(target) },
     updates: {},
     log: null,
   };

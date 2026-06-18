@@ -12,7 +12,7 @@ const {
 } = require('discord.js');
 
 const embeds = require('../../utils/embeds');
-const { formatCash, formatDuration, relativeTimestamp } = require('../../utils/helpers');
+const { formatCash, formatDuration, relativeTimestamp, displayName } = require('../../utils/helpers');
 const { BODYGUARD_COSTS } = require('../../data/constants');
 
 const BG_LABELS = {
@@ -120,7 +120,7 @@ function renderSearchPanel(candidates = [], activeSearches = []) {
     const playerKey = `player:${c.discordId}`;
     if (activeKeys.has(playerKey)) continue;
     options.push({
-      label: `${c.username}`.slice(0, 100),
+      label: displayName(c).slice(0, 100),
       description: 'Search this player ($5,000 / 5 min)'.slice(0, 100),
       value: `search_player:${c.discordId}`,
     });

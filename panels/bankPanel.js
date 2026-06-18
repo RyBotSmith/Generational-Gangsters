@@ -119,7 +119,7 @@ async function handleSelect(interaction) {
     const targetId = interaction.values[0];
     const allPlayers = await playerRepository.getLeaderboard(serverId, 'xp', 25);
     const target   = allPlayers.find(p => p.discordId === targetId);
-    const targetName = target?.username ?? targetId;
+    const targetName = displayName(target) !== 'Unknown' ? displayName(target) : targetId;
     return interaction.showModal(transferAmountModal(targetId, targetName));
   }
 

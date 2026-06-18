@@ -24,7 +24,7 @@ const {
 
 const playerRepository = require('../repositories/playerRepository');
 const logRepository    = require('../repositories/logRepository');
-const { randInt, getRankIndex } = require('../utils/helpers');
+const { randInt, getRankIndex, displayName } = require('../utils/helpers');
 
 // Search durations (seconds)
 const SEARCH_PLAYER_DURATION    = 300;  // 5 mins
@@ -613,7 +613,7 @@ async function shoot(serverId, discordId, targetId) {
   if (victim.hospitalizedUntil && Date.now() < victim.hospitalizedUntil) {
     return {
       success: false,
-      message: `**${victim.username ?? 'This player'}** is already in hospital and can't be attacked.`,
+      message: `**${displayName(victim)}** is already in hospital and can't be attacked.`,
       data: { victimHospitalized: true, hospitalizedUntil: victim.hospitalizedUntil },
       updates: {},
       log: null,
@@ -622,7 +622,7 @@ async function shoot(serverId, discordId, targetId) {
   if (victim.witnessProtectionUntil && Date.now() < victim.witnessProtectionUntil) {
     return {
       success: false,
-      message: `**${victim.username ?? 'This player'}** is under witness protection and cannot be attacked.`,
+      message: `**${displayName(victim)}** is under witness protection and cannot be attacked.`,
       data: { victimProtected: true },
       updates: {},
       log: null,
@@ -639,7 +639,7 @@ async function shoot(serverId, discordId, targetId) {
 
     return {
       success: false,
-      message: `**${victim.username ?? 'Your target'}** is in **${victim.state}**. Travel there to shoot them.`,
+      message: `**${displayName(victim)}** is in **${victim.state}**. Travel there to shoot them.`,
       data: { wrongState: true, attackerState: attacker.state, victimState: victim.state },
       updates: {},
       log: null,
@@ -659,7 +659,7 @@ async function shoot(serverId, discordId, targetId) {
 
     return {
       success: false,
-      message: `**${victim.username ?? 'Your target'}** is protected by **${bgName}**. Search and eliminate their bodyguard first.`,
+      message: `**${displayName(victim)}** is protected by **${bgName}**. Search and eliminate their bodyguard first.`,
       data: {
         outcome: 'blocked_by_bodyguard',
         victimId: victim.discordId,
@@ -800,7 +800,7 @@ async function shootBodyguard(serverId, attacker, victim, bgSlot) {
 
   return {
     success: true,
-    message: `You gunned down **${bgName}** (Slot ${bgSlot}) protecting **${victim.username ?? 'your target'}**!`,
+    message: `You gunned down **${bgName}** (Slot ${bgSlot}) protecting **${displayName(victim)}**!`,
     data: {
       outcome: 'kill_bodyguard',
       attackerId: attacker.discordId,
@@ -828,7 +828,7 @@ async function shootPlayer(serverId, attacker, victim) {
   if (bullets < bulletsToKill) {
     return {
       success: false,
-      message: `You need **${bulletsToKill} bullets** to take down **${victim.username ?? 'this target'}**. You only have **${bullets}**.`,
+      message: `You need **${bulletsToKill} bullets** to take down **${displayName(victim)}**. You only have **${bullets}**.`,
       data: { insufficientBullets: true, required: bulletsToKill, have: bullets },
       updates: {},
       log: null,
@@ -885,7 +885,7 @@ async function shootPlayer(serverId, attacker, victim) {
 
     return {
       success: true,
-      message: `You hit **${victim.username ?? 'your target'}** for **${damage} HP**! They're down to **${newHp} HP**.`,
+      message: `You hit **${displayName(victim)}** for **${damage} HP**! They're down to **${newHp} HP**.`,
       data: {
         outcome: 'damage_player',
         attackerId: attacker.discordId,
@@ -963,7 +963,7 @@ async function shootPlayer(serverId, attacker, victim) {
 
   return {
     success: true,
-    message: `💀 You **killed** **${victim.username ?? 'your target'}**! You took **${formatCash(cashStolen)}** and **${bulletsStolen} bullets**.`,
+    message: `💀 You **killed** **${displayName(victim)}**! You took **${formatCash(cashStolen)}** and **${bulletsStolen} bullets**.`,
     data: {
       outcome: 'kill_player',
       attackerId: attacker.discordId,

@@ -5,7 +5,7 @@
 
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const embeds = require('../../utils/embeds');
-const { formatCash, isJailed, isHospitalized, isTravelling, relativeTimestamp } = require('../../utils/helpers');
+const { formatCash, isJailed, isHospitalized, isTravelling, relativeTimestamp, displayName } = require('../../utils/helpers');
 const { RANKS } = require('../../data/constants');
 const { getRankIndex } = require('../../utils/helpers');
 
@@ -48,11 +48,8 @@ function renderHome(player) {
   // Colour — prestige overrides rank
   const colour = PRESTIGE_COLOURS[prestige] ?? RANK_COLOURS[rankIdx] ?? embeds.COLOURS.dark;
 
-  // Title badge
-  const badge = PRESTIGE_BADGES[prestige] ?? '';
-  const title = badge
-    ? `${badge} ${player.username ?? 'Gangster'}'s HQ`
-    : `🏠 ${player.username ?? 'Gangster'}'s HQ`;
+  // Title — no badge, just home icon
+  const title = `🏠 ${displayName(player)}'s HQ`;
 
   // Status line
   let statusLine = '🟢 Active';
@@ -60,10 +57,16 @@ function renderHome(player) {
   else if (isHospitalized(player))  statusLine = `💀 In Hospital — back ${relativeTimestamp(player.hospitalizedUntil)}`;
   else if (isTravelling(player))    statusLine = `✈️ Travelling — arrives ${relativeTimestamp(player.travelEndTime)}`;
 
-  // Prestige banner — shown prominently when prestiged
+  // Prestige banner — text only, no stars
   const prestigeBanner = prestige > 0
-    ? `\n${PRESTIGE_BADGES[prestige]} **PRESTIGE ${prestige}** ${PRESTIGE_BADGES[prestige]}`
+    ? `\n✨ **PRESTIGE ${prestige}**`
     : '';
+
+  // Footer — rank removed, stars scale 1-5
+  const footerStars = '⭐'.repeat(prestige);
+  const footerText = prestige > 0
+    ? `${footerStars} Prestige ${prestige} · Generational Gangsters`
+    : `Generational Gangsters`;
 
   // XP progress bar with numbers
   let progressStr = '';
@@ -96,7 +99,7 @@ function renderHome(player) {
       { name: '🛡️ Bodyguards', value: `${bgAlive}/${bgTotal} alive`,          inline: true },
       { name: '📈 Progress', value: progressStr }
     )
-    .setFooter({ text: prestige > 0 ? `${PRESTIGE_BADGES[prestige]} Prestige ${prestige} · ${rank.name} · Generational Gangsters` : `${rank.name} · Generational Gangsters` });
+    .setFooter({ text: footerText });
 
   // Nav buttons — row 1: core actions
   const row1 = new ActionRowBuilder().addComponents(

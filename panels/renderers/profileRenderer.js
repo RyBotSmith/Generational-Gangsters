@@ -5,7 +5,7 @@
 
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const embeds = require('../../utils/embeds');
-const { formatCash, getRankIndex } = require('../../utils/helpers');
+const { formatCash, getRankIndex, displayName } = require('../../utils/helpers');
 const { RANKS, WEAPONS, ARMOUR, VEHICLES, UPGRADES, BODYGUARD_COSTS } = require('../../data/constants');
 
 // ── Profile home panel ────────────────────────
@@ -68,7 +68,7 @@ function renderProfileHome(player) {
     : '*None equipped*';
 
   const embed = embeds.base(embeds.COLOURS.dark)
-    .setTitle(`👤 ${player.characterName ?? player.username ?? 'Profile'}`)
+    .setTitle(`👤 ${displayName(player)}`)
     .setDescription(
       `**${rank.name}** · Prestige ${player.prestige ?? 0}/5 · ❤️ ${player.health ?? 100}/100`
     )
@@ -300,7 +300,7 @@ function renderStatsPanel(player) {
     : `-${formatCash(Math.abs(netGamble))}`;
 
   const embed = embeds.base(embeds.COLOURS.info)
-    .setTitle(`📊 ${player.username ?? 'Stats'}`);
+    .setTitle(`📊 ${displayName(player)}`);
 
   // Only show buff summary if player has any buffs
   if (crimeTotalBuff > 0 || gtaTotalBuff > 0) {

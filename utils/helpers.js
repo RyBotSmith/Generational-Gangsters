@@ -122,6 +122,13 @@ function businessId(typeId, state) {
   return `${typeId}_${state}`;
 }
 
+/**
+ * Get the display name for a player — characterName if set, otherwise Discord username.
+ */
+function displayName(player) {
+  return player?.characterName || player?.username || 'Unknown';
+}
+
 module.exports = {
   randInt,
   formatCash,
@@ -137,4 +144,5 @@ module.exports = {
   cooldownRemaining,
   clamp,
   businessId,
+  displayName,
 };

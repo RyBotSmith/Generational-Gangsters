@@ -13,6 +13,7 @@ const {
   STATES,
   ACTION_TYPES,
 } = require('../data/constants');
+const { displayName } = require('../utils/helpers');
 
 const playerRepository   = require('../repositories/playerRepository');
 const businessRepository = require('../repositories/businessRepository');
@@ -210,7 +211,7 @@ async function claim(serverId, discordId) {
   await businessRepository.setSlot(serverId, key, {
     ...slot,
     ownerId:         discordId,
-    ownerName:       player.username,
+    ownerName:       displayName(player),
     level:           1,
     raidCount:       0,
     lastCollectedAt: now,
