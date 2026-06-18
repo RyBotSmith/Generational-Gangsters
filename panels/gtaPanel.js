@@ -126,22 +126,14 @@ async function handle(interaction) {
   if (customId === 'panel_gta_melt_all') {
     await interaction.deferUpdate();
     const result = await gtaService.meltAll(serverId, discordId);
-    if (!result.success) {
-      return interaction.editReply({ embeds: [embeds.error(result.message)], components: [] });
-    }
-    const { player } = await getPlayerAndCrew(serverId, discordId);
-    return interaction.editReply(renderGarageHome(gtaService.getGarage(player)));
+    return interaction.editReply(renderGtaMelted(result));
   }
 
   // ── panel_gta_sell_all ────────────────────
   if (customId === 'panel_gta_sell_all') {
     await interaction.deferUpdate();
     const result = await gtaService.sellAll(serverId, discordId);
-    if (!result.success) {
-      return interaction.editReply({ embeds: [embeds.error(result.message)], components: [] });
-    }
-    const { player } = await getPlayerAndCrew(serverId, discordId);
-    return interaction.editReply(renderGarageHome(gtaService.getGarage(player)));
+    return interaction.editReply(renderGtaSold(result));
   }
 
   // ── panel_gta_garage_melt_{carId}_{index} ─
@@ -155,7 +147,6 @@ async function handle(interaction) {
     if (!result.success) {
       return interaction.editReply({ embeds: [embeds.error(result.message)], components: [] });
     }
-    const { player } = await getPlayerAndCrew(serverId, discordId);
     return interaction.editReply(renderGtaMelted(result));
   }
 

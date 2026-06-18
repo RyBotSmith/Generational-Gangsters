@@ -188,33 +188,11 @@ function renderIllegalPanel(player, stateSlot) {
       `Travel between states to find them.\n\n` +
       `⚠️ Illegal businesses can be raided by other players.\n` +
       `Get raided **5 times** and you lose everything.`
-    )
-    .addFields(
-      {
-        name: `${FLAVOUR.drug_lab.emoji} ${FLAVOUR.drug_lab.tagline}`,
-        value: [
-          FLAVOUR.drug_lab.desc,
-          `\n💵 **${formatCash(BUSINESS_TYPES.drug_lab.incomePerHr)}/hr** base • 💰 **${formatCash(BUSINESS_TYPES.drug_lab.buyCost)}** to claim`,
-          `🏷️ Sell: **${formatCash(Math.floor(BUSINESS_TYPES.drug_lab.buyCost * 0.6))}** • 📈 Max Level: 5`,
-          `💡 ${FLAVOUR.drug_lab.tip}`,
-        ].join('\n'),
-        inline: false,
-      },
-      {
-        name: `${FLAVOUR.casino.emoji} ${FLAVOUR.casino.tagline}`,
-        value: [
-          FLAVOUR.casino.desc,
-          `\n💵 **${formatCash(BUSINESS_TYPES.casino.incomePerHr)}/hr** base • 💰 **${formatCash(BUSINESS_TYPES.casino.buyCost)}** to claim`,
-          `🏷️ Sell: **${formatCash(Math.floor(BUSINESS_TYPES.casino.buyCost * 0.6))}** • 📈 Max Level: 5`,
-          `💡 ${FLAVOUR.casino.tip}`,
-        ].join('\n'),
-        inline: false,
-      }
     );
 
   const rows = [];
 
-  // Only show action buttons if player is in a state with an illegal business
+  // Only show business details and actions if player is at an illegal state
   if (stateSlot && BUSINESS_TYPES[stateSlot.typeId]?.category === 'illegal') {
     const type      = BUSINESS_TYPES[stateSlot.typeId];
     const f         = FLAVOUR[stateSlot.typeId];

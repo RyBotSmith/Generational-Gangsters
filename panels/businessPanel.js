@@ -76,13 +76,6 @@ async function handle(interaction) {
   if (customId === 'panel_business_collect') {
     await interaction.deferUpdate();
     const result = await businessService.collect(serverId, discordId);
-    if (result.success) {
-      const state = await businessService.getBusinessState(serverId, discordId);
-      const { player, stateSlot } = state.data;
-      const type = BUSINESS_TYPES[stateSlot?.typeId];
-      if (type?.category === 'legal') return interaction.editReply(renderLegalPanel(player, stateSlot));
-      return interaction.editReply(renderIllegalPanel(player, stateSlot));
-    }
     return interaction.editReply(renderBusinessResult(result));
   }
 

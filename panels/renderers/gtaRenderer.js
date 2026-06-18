@@ -149,21 +149,25 @@ function renderGtaCooldown(nextAvailableMs) {
 }
 
 /**
- * Render melt result.
+ * Render melt result (single car or all cars).
  */
 function renderGtaMelted(result) {
-  const { car, bulletsEarned } = result.data;
+  const isBulk = !result.data.car;
+  const desc = isBulk
+    ? `🔫 Melted **${result.data.count} cars** for **+${result.data.totalBullets} bullets**!`
+    : `🔫 **+${result.data.bulletsEarned} bullets** from scrapping the **${result.data.car.name}**.`;
 
-  const embed = embeds.success(
-    `${car.name} Melted`,
-    `🔫 **+${bulletsEarned} bullets** from scrapping the **${car.name}**.`
-  );
+  const embed = embeds.success(isBulk ? 'Garage Melted' : `${result.data.car.name} Melted`, desc);
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
+      .setCustomId('panel_gta_garage')
+      .setLabel('🅿️ Garage')
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
       .setCustomId('panel_gta')
       .setLabel('⬅ GTA')
-      .setStyle(ButtonStyle.Primary),
+      .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('panel_home')
       .setLabel('🏠 Home')
@@ -174,21 +178,25 @@ function renderGtaMelted(result) {
 }
 
 /**
- * Render sell result.
+ * Render sell result (single car or all cars).
  */
 function renderGtaSold(result) {
-  const { car, cashEarned } = result.data;
+  const isBulk = !result.data.car;
+  const desc = isBulk
+    ? `💰 Sold **${result.data.count} cars** for **+${formatCash(result.data.totalCash)}**!`
+    : `💰 **+${formatCash(result.data.cashEarned)}** from selling the **${result.data.car.name}**.`;
 
-  const embed = embeds.success(
-    `${car.name} Sold`,
-    `💰 **+${formatCash(cashEarned)}** from selling the **${car.name}**.`
-  );
+  const embed = embeds.success(isBulk ? 'Garage Sold' : `${result.data.car.name} Sold`, desc);
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
+      .setCustomId('panel_gta_garage')
+      .setLabel('🅿️ Garage')
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
       .setCustomId('panel_gta')
       .setLabel('⬅ GTA')
-      .setStyle(ButtonStyle.Primary),
+      .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('panel_home')
       .setLabel('🏠 Home')
@@ -239,8 +247,8 @@ function renderGtaStored(result) {
       .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
       .setCustomId('panel_gta')
-      .setLabel('🚗 Steal Again')
-      .setStyle(ButtonStyle.Danger),
+      .setLabel('⬅ GTA')
+      .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('panel_home')
       .setLabel('🏠 Home')
