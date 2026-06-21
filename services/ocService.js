@@ -544,6 +544,11 @@ function getOcCooldowns(player) {
   return result;
 }
 
+async function getOpenLobbyForPlayer(serverId, discordId) {
+  const ocRepository = require('../repositories/ocRepository');
+  return ocRepository.getOpenLobbyForPlayer(serverId, discordId);
+}
+
 module.exports = {
   createLobby,
   joinLobby,
@@ -554,4 +559,5 @@ module.exports = {
   startOC,
   getLobby,
   getOcCooldowns,
+  getOpenLobbyForPlayer,
 };

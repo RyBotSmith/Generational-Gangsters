@@ -110,6 +110,10 @@ const BUTTON_SELECT_ROUTES = {
   // ── OC panels ─────────────────────────────
   'panel_oc':        (i) => ocPanel.handle(i),
   'panelm_oc':       (i) => ocPanel.handle(i),
+  'modal_oc_':       (i) => ocPanel.handle(i),
+
+  // Crew modal opener buttons (trigger showModal, must NOT defer)
+  'modal_crew_':     (i) => crewPanel.handle(i),
 
   // ── Admin panels (ap2_ / apm2_) ───────────
   'ap2_':  (i) => adminPanel.handle(i),

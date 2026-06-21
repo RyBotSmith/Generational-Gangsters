@@ -52,8 +52,9 @@ async function handle(interaction) {
     await interaction.deferUpdate();
     const player = await playerRepository.getPlayer(serverId, discordId);
     if (!player) return safeFollowUp(interaction, { embeds: [embeds.error('No player found.')] });
-    const cooldowns = ocService.getOcCooldowns(player);
-    return interaction.editReply(renderOcHub(player, cooldowns));
+    const cooldowns    = ocService.getOcCooldowns(player);
+    const activeLobby  = await ocService.getOpenLobbyForPlayer(serverId, discordId);
+    return interaction.editReply(renderOcHub(player, cooldowns, activeLobby));
   }
 
   // ── panel_oc_create_{ocTypeId} ────────────
