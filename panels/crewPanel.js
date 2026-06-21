@@ -69,7 +69,7 @@ async function handle(interaction) {
   if (customId === 'panel_crew_leave') {
     await interaction.deferUpdate();
     const player = await playerRepository.getPlayer(serverId, discordId);
-    if (!player?.crewId) return safeFollowUp(interaction, { embeds: [embeds.error('You\'re not in a crew.')] });
+    if (!player?.crewId) return safeFollowUp(interaction, { embeds: [embeds.error('You are not in a crew.')] });
     const crew = await crewRepository.getCrew(serverId, player.crewId);
     if (!crew) return safeFollowUp(interaction, { embeds: [embeds.error('Crew not found.')] });
     return interaction.editReply(renderLeaveConfirm(crew));
@@ -86,7 +86,7 @@ async function handle(interaction) {
   if (customId === 'panel_crew_disband') {
     await interaction.deferUpdate();
     const player = await playerRepository.getPlayer(serverId, discordId);
-    if (!player?.crewId) return safeFollowUp(interaction, { embeds: [embeds.error('You're not in a crew.')] });
+    if (!player?.crewId) return safeFollowUp(interaction, { embeds: [embeds.error('You are not in a crew.')] });
     const crew = await crewRepository.getCrew(serverId, player.crewId);
     if (!crew) return safeFollowUp(interaction, { embeds: [embeds.error('Crew not found.')] });
     if (crew.leaderId !== discordId) return safeFollowUp(interaction, { embeds: [embeds.error('Only the leader can disband the crew.')] });
