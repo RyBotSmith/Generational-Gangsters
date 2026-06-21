@@ -86,6 +86,7 @@ const BUTTON_SELECT_ROUTES = {
   'panelm_shop':        (i) => shopPanel.handle(i),
   'panel_business':     (i) => businessPanel.handle(i),
   'panel_gamble':       (i) => gamblingPanel.handle(i),
+  'modal_gamble_':      (i) => gamblingPanel.handle(i),   // modal opener buttons routed here
   'panel_profile':      (i) => profilePanel.handle(i),
   'panel_upgrades':     (i) => profilePanel.handle(i),
   'panel_upgrade_buy_': (i) => profilePanel.handle(i),
