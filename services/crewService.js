@@ -574,3 +574,183 @@ module.exports = {
   getThugIncome,
   processThugs,
 };
+
+// ── joinCrew ──────────────────────────────────
+
+async function joinCrew(serverId, discordId, crewName) {
+  const player = await playerRepository.getPlayer(serverId, discordId);
+  if (!player) return { success: false, message: 'Player not found.', data: {} };
+  if (player.crewId) return { success: false, message: 'You are already in a crew. Leave first.', data: {} };
+
+  const crew = await crewRepository.getCrewByName(serverId, crewName);
+  if (!crew) return { success: false, message: `No crew named **${crewName}** found.`, data: {} };
+
+  const memberCount = Object.keys(crew.members ?? {}).length;
+  if (memberCount >= 20) return { success: false, message: 'That crew is full.', data: {} };
+
+  const now = Date.now();
+  await crewRepository.updateCrew(serverId, crew.crewId, {
+    [`members.${discordId}`]: { username: player.username ?? discordId, role: 'member', joinedAt: now },
+    memberCount: memberCount + 1,
+  });
+  await playerRepository.updatePlayer(serverId, discordId, { crewId: crew.crewId, crewRole: 'member' });
+
+  logRepository.write(serverId, {
+    discordId, actionType: ACTION_TYPES.SOCIAL, actionName: 'crew_join',
+    payload: { crewId: crew.crewId, crewName: crew.name },
+  }).catch(() => {});
+
+  return { success: true, message: `You joined **${crew.name}**!`, data: { crewId: crew.crewId } };
+}
+
+// ── leaveCrew ─────────────────────────────────
+
+async function leaveCrew(serverId, discordId) {
+  const player = await playerRepository.getPlayer(serverId, discordId);
+  if (!player) return { success: false, message: 'Player not found.', data: {} };
+  if (!player.crewId) return { success: false, message: 'You are not in a crew.', data: {} };
+
+  const crew = await crewRepository.getCrew(serverId, player.crewId);
+  if (!crew) return { success: false, message: 'Crew not found.', data: {} };
+  if (crew.leaderId === discordId) return { success: false, message: 'Leaders cannot leave. Disband or transfer leadership first.', data: {} };
+
+  const updatedMembers = { ...crew.members };
+  delete updatedMembers[discordId];
+
+  await crewRepository.updateCrew(serverId, player.crewId, {
+    members: updatedMembers,
+    memberCount: Math.max(0, (crew.memberCount ?? 1) - 1),
+  });
+  await playerRepository.updatePlayer(serverId, discordId, { crewId: null, crewRole: null });
+
+  logRepository.write(serverId, {
+    discordId, actionType: ACTION_TYPES.SOCIAL, actionName: 'crew_leave',
+    payload: { crewId: player.crewId, crewName: crew.name },
+  }).catch(() => {});
+
+  return { success: true, message: `You left **${crew.name}**.`, data: {} };
+}
+
+// ── kickMember ────────────────────────────────
+
+async function kickMember(serverId, leaderId, targetId) {
+  const leader = await playerRepository.getPlayer(serverId, leaderId);
+  if (!leader?.crewId) return { success: false, message: 'You are not in a crew.', data: {} };
+
+  const crew = await crewRepository.getCrew(serverId, leader.crewId);
+  if (!crew) return { success: false, message: 'Crew not found.', data: {} };
+  if (crew.leaderId !== leaderId) return { success: false, message: 'Only the leader can kick members.', data: {} };
+  if (targetId === leaderId) return { success: false, message: 'You cannot kick yourself.', data: {} };
+  if (!(targetId in (crew.members ?? {}))) return { success: false, message: 'That player is not in your crew.', data: {} };
+
+  const targetName     = crew.members[targetId]?.username ?? targetId;
+  const updatedMembers = { ...crew.members };
+  delete updatedMembers[targetId];
+
+  await crewRepository.updateCrew(serverId, leader.crewId, {
+    members: updatedMembers,
+    memberCount: Math.max(0, (crew.memberCount ?? 1) - 1),
+  });
+  await playerRepository.updatePlayer(serverId, targetId, { crewId: null, crewRole: null });
+
+  logRepository.write(serverId, {
+    discordId: leaderId, actionType: ACTION_TYPES.SOCIAL, actionName: 'crew_kick',
+    payload: { crewId: leader.crewId, targetId, targetName },
+  }).catch(() => {});
+
+  return { success: true, message: `**${targetName}** has been kicked.`, data: { targetId } };
+}
+
+// ── depositVault / withdrawVault ──────────────
+
+const { formatCash } = require('../utils/helpers');
+
+async function depositVault(serverId, discordId, amount) {
+  if (isNaN(amount) || amount <= 0) return { success: false, message: 'Enter a valid amount.', data: {} };
+
+  const player = await playerRepository.getPlayer(serverId, discordId);
+  if (!player) return { success: false, message: 'Player not found.', data: {} };
+  if (!player.crewId) return { success: false, message: 'You are not in a crew.', data: {} };
+  if ((player.cash ?? 0) < amount) return { success: false, message: `You only have **${formatCash(player.cash ?? 0)}**.`, data: {} };
+
+  await playerRepository.updatePlayer(serverId, discordId, { cash: (player.cash ?? 0) - amount });
+  await crewRepository.incrementCrewFields(serverId, player.crewId, { vault: amount });
+
+  logRepository.write(serverId, {
+    discordId, actionType: ACTION_TYPES.ECONOMY, actionName: 'crew_deposit',
+    payload: { crewId: player.crewId, amount },
+  }).catch(() => {});
+
+  return { success: true, message: `Deposited **${formatCash(amount)}** into the crew vault.`, data: { amount } };
+}
+
+async function withdrawVault(serverId, discordId, amount) {
+  if (isNaN(amount) || amount <= 0) return { success: false, message: 'Enter a valid amount.', data: {} };
+
+  const player = await playerRepository.getPlayer(serverId, discordId);
+  if (!player) return { success: false, message: 'Player not found.', data: {} };
+  if (!player.crewId) return { success: false, message: 'You are not in a crew.', data: {} };
+
+  const crew = await crewRepository.getCrew(serverId, player.crewId);
+  if (!crew) return { success: false, message: 'Crew not found.', data: {} };
+  if (crew.leaderId !== discordId) return { success: false, message: 'Only the leader can withdraw from the vault.', data: {} };
+  if ((crew.vault ?? 0) < amount) return { success: false, message: `The vault only has **${formatCash(crew.vault ?? 0)}**.`, data: {} };
+
+  await crewRepository.incrementCrewFields(serverId, player.crewId, { vault: -amount });
+  await playerRepository.updatePlayer(serverId, discordId, { cash: (player.cash ?? 0) + amount });
+
+  logRepository.write(serverId, {
+    discordId, actionType: ACTION_TYPES.ECONOMY, actionName: 'crew_withdraw',
+    payload: { crewId: player.crewId, amount },
+  }).catch(() => {});
+
+  return { success: true, message: `Withdrew **${formatCash(amount)}** from the vault.`, data: { amount } };
+}
+
+// ── purchaseUpgrade ───────────────────────────
+
+async function purchaseUpgrade(serverId, discordId, upgradeId) {
+  const { CREW_UPGRADES } = require('../data/constants');
+  const upgradeDef = CREW_UPGRADES[upgradeId];
+  if (!upgradeDef) return { success: false, message: 'Unknown upgrade.', data: {} };
+
+  const player = await playerRepository.getPlayer(serverId, discordId);
+  if (!player?.crewId) return { success: false, message: 'You need a crew.', data: {} };
+
+  const crew = await crewRepository.getCrew(serverId, player.crewId);
+  if (!crew) return { success: false, message: 'Crew not found.', data: {} };
+  if (crew.leaderId !== discordId) return { success: false, message: 'Only the leader can purchase upgrades.', data: {} };
+
+  const maxLevel     = upgradeDef.maxLevel ?? 3;
+  const currentLevel = crew.upgrades?.[upgradeId] ?? 0;
+  if (currentLevel >= maxLevel) return { success: false, message: `**${upgradeDef.name}** is already maxed.`, data: {} };
+
+  const cost = Math.floor(upgradeDef.baseCost * Math.pow(upgradeDef.costMultiplier ?? 1.5, currentLevel));
+  if ((player.cash ?? 0) < cost) return { success: false, message: `You need **${formatCash(cost)}**.`, data: {} };
+
+  const newLevel = currentLevel + 1;
+  await crewRepository.updateCrew(serverId, player.crewId, { [`upgrades.${upgradeId}`]: newLevel });
+  await playerRepository.updatePlayer(serverId, discordId, { cash: (player.cash ?? 0) - cost });
+
+  logRepository.write(serverId, {
+    discordId, actionType: ACTION_TYPES.ECONOMY, actionName: 'crew_upgrade',
+    payload: { crewId: player.crewId, upgradeId, newLevel, cost },
+  }).catch(() => {});
+
+  return { success: true, message: `**${upgradeDef.name}** upgraded to level **${newLevel}/${maxLevel}**!`, data: { newLevel } };
+}
+
+// ── Updated exports ───────────────────────────
+
+module.exports = {
+  create,
+  joinCrew,
+  leaveCrew,
+  kickMember,
+  depositVault,
+  withdrawVault,
+  purchaseUpgrade,
+  hireThug,
+  getThugIncome,
+  processThugs,
+};

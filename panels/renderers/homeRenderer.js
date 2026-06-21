@@ -149,12 +149,16 @@ function renderHome(player) {
       .setStyle(ButtonStyle.Secondary)
   );
 
-  // Row 3: crew
+  // Row 3: crew + OC
   const row3 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('panel_crew')
       .setLabel('👥 Crew')
-      .setStyle(ButtonStyle.Secondary)
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('panel_oc')
+      .setLabel('🎯 Organised Crime')
+      .setStyle(ButtonStyle.Danger)
   );
 
   return { embeds: [embed], components: [row1, row2, row3] };
