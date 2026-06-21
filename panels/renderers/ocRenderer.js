@@ -8,8 +8,8 @@ const embeds = require('../../utils/embeds');
 const { formatCash, formatDuration, relativeTimestamp } = require('../../utils/helpers');
 const { OC_TYPES, RANKS } = require('../../data/constants');
 
-const IMAGE_BASE = 'https://github.com/RyBotSmith/Generational-Gangsters/blob/main/public';
-const ocImg = (id) => `${IMAGE_BASE}/oc-images/${id}.png?raw=true`;
+const IMAGE_BASE = 'https://raw.githubusercontent.com/RyBotSmith/Generational-Gangsters/main/public';
+const ocImg = (id) => `${IMAGE_BASE}/oc-images/${id}.png`;
 
 function backRow() {
   return new ActionRowBuilder().addComponents(

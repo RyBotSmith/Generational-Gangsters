@@ -8,8 +8,8 @@ const embeds = require('../../utils/embeds');
 const { formatCash, relativeTimestamp } = require('../../utils/helpers');
 const { WEAPONS, VEHICLES } = require('../../data/constants');
 
-const IMAGE_BASE = 'https://github.com/RyBotSmith/Generational-Gangsters/blob/main/public';
-const carImg  = (id) => `${IMAGE_BASE}/car-images/${id}.png?raw=true`;
+const IMAGE_BASE = 'https://raw.githubusercontent.com/RyBotSmith/Generational-Gangsters/main/public';
+const carImg  = (id) => `${IMAGE_BASE}/car-images/${id}.png`;
 
 // ── GTA home panel ────────────────────────────
 

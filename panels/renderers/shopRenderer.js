@@ -8,8 +8,8 @@ const embeds  = require('../../utils/embeds');
 const { formatCash } = require('../../utils/helpers');
 const { WEAPONS, ARMOUR, VEHICLES, MEDICAL_ITEMS } = require('../../data/constants');
 
-const IMAGE_BASE = 'https://github.com/RyBotSmith/Generational-Gangsters/blob/main/public';
-const itemImg = (id) => `${IMAGE_BASE}/item-images/${id}.png?raw=true`;
+const IMAGE_BASE = 'https://raw.githubusercontent.com/RyBotSmith/Generational-Gangsters/main/public';
+const itemImg = (id) => `${IMAGE_BASE}/item-images/${id}.png`;
 
 // ── Shop home ─────────────────────────────────
 
