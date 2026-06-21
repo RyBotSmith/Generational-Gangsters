@@ -355,14 +355,14 @@ const ARMOUR = {
   },
   helmet: {
     id: 'helmet', name: 'Combat Helmet',
-    cost: 22000,
-    slot: 'headwear', armorBonus: 0.18,
+    cost: 80000,
+    slot: 'headwear', armorBonus: 0.35,
     durabilityShots: 15, durabilityDeaths: 2,
   },
   ballistic_helmet: {
     id: 'ballistic_helmet', name: 'Ballistic Helmet',
-    cost: 80000,
-    slot: 'headwear', armorBonus: 0.35,
+    cost: 22000,
+    slot: 'headwear', armorBonus: 0.18,
     durabilityShots: 15, durabilityDeaths: 2,
   },
 };
