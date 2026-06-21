@@ -8,6 +8,9 @@ const embeds = require('../../utils/embeds');
 const { formatCash, formatDuration, relativeTimestamp } = require('../../utils/helpers');
 const { OC_TYPES, RANKS } = require('../../data/constants');
 
+const IMAGE_BASE = 'https://github.com/RyBotSmith/Generational-Gangsters/blob/main/public';
+const ocImg = (id) => `${IMAGE_BASE}/oc-images/${id}.png?raw=true`;
+
 function backRow() {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('panel_oc').setLabel('⬅ OC').setStyle(ButtonStyle.Secondary),
@@ -94,6 +97,7 @@ function renderLobbyCreated(result) {
 
   const embed = embeds.base(embeds.COLOURS.purple)
     .setTitle(`🎯 ${ocType.name} — Lobby Ready`)
+    .setThumbnail(ocImg(ocType.id))
     .setDescription(
       `Share this code with players:\n\n` +
       `\`\`\`${lobby.lobbyId}\`\`\`\n` +
@@ -133,6 +137,7 @@ function renderPublicJoinEmbed(lobby, ocType, leaderName) {
 
   const embed = embeds.base(embeds.COLOURS.purple)
     .setTitle(`🎯 ${ocType.name} — Looking for Players`)
+    .setImage(ocImg(lobby.ocTypeId))
     .setDescription(
       `**${leaderName}** is organising a **${ocType.name}**.\n\n` +
       `👥 **${memberCount}/${ocType.maxPlayers}** joined\n` +
@@ -269,6 +274,7 @@ function renderOcResult(result) {
     const lines = memberResults.map(m => `✅ **${m.username}** — ${formatCash(m.cashEarned)} | ${m.xpGained} XP`);
     embed = embeds.base(embeds.COLOURS.success)
       .setTitle(`🎯 ${ocType.name} — Success!`)
+      .setThumbnail(ocImg(ocType.id))
       .setDescription(lines.join('\n'))
       .addFields(
         { name: '💰 Per Member', value: formatCash(perCash), inline: true },

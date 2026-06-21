@@ -8,6 +8,9 @@ const embeds  = require('../../utils/embeds');
 const { formatCash } = require('../../utils/helpers');
 const { WEAPONS, ARMOUR, VEHICLES, MEDICAL_ITEMS } = require('../../data/constants');
 
+const IMAGE_BASE = 'https://github.com/RyBotSmith/Generational-Gangsters/blob/main/public';
+const itemImg = (id) => `${IMAGE_BASE}/item-images/${id}.png?raw=true`;
+
 // ── Shop home ─────────────────────────────────
 
 /**
@@ -103,6 +106,7 @@ function renderItemList(category, itemIds, playerCash) {
 
   const embed = embeds.base(embeds.COLOURS.gold)
     .setTitle(`🛒 ${titles[category] ?? category}`)
+    .setThumbnail(itemIds[0] ? itemImg(itemIds[0]) : null)
     .setDescription(
       `💰 **Your cash:** ${formatCash(playerCash)}\n\n` +
       (lines.join('\n') || 'Nothing available.')
@@ -159,6 +163,7 @@ function renderBuyResult(result) {
   }
 
   const embed = embeds.success('Item Purchased', result.message);
+  if (result.data?.itemId) embed.setThumbnail(itemImg(result.data.itemId));
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('panel_shop').setLabel('🛒 Keep Shopping').setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId('panel_home').setLabel('🏠 Home').setStyle(ButtonStyle.Secondary)

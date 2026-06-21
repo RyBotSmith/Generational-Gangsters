@@ -8,6 +8,9 @@ const embeds = require('../../utils/embeds');
 const { formatCash, relativeTimestamp } = require('../../utils/helpers');
 const { WEAPONS, VEHICLES } = require('../../data/constants');
 
+const IMAGE_BASE = 'https://github.com/RyBotSmith/Generational-Gangsters/blob/main/public';
+const carImg  = (id) => `${IMAGE_BASE}/car-images/${id}.png?raw=true`;
+
 // ── GTA home panel ────────────────────────────
 
 function renderGtaHome(cdState, unlockedCars, garageData = {}, player = null) {
@@ -78,6 +81,7 @@ function renderGtaStolen(result) {
     .setDescription(
       `You swiped a **${car.name}**!\n✨ **+${xpGained} XP**\n\nWhat do you want to do with it?`
     )
+    .setThumbnail(carImg(car.id))
     .addFields(
       { name: '🔫 Melt', value: `**${car.meltBullets} bullets**`, inline: true },
       { name: '💰 Sell', value: `**${formatCash(car.value)}**`,   inline: true },
@@ -346,8 +350,7 @@ function renderGarageCarView(car, index) {
       { name: '🔫 Melt Bullets',  value: `${car.meltBullets} bullets`, inline: true }
     );
 
-  // Placeholder image — will be replaced with real URLs later
-  // embed.setThumbnail(`https://your-cdn.com/cars/${car.id}.png`);
+  embed.setThumbnail(carImg(car.id));
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
