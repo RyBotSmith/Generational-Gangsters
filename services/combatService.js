@@ -305,7 +305,7 @@ function revealBodyguard(serverId, attacker, victim, bgSlot) {
   const revealEntry = {
     searchId:    null,
     targetId:    victim.discordId,
-    targetName:  victim.username ?? victim.discordId,
+    targetName:  displayName(victim),
     type:        'bodyguard',
     bgSlot,
     intel: {
@@ -441,7 +441,7 @@ async function search(serverId, discordId, targetId, type = 'player', bgSlot = n
   const entry = {
     searchId,
     targetId,
-    targetName: target.username ?? targetId,
+    targetName: displayName(target),
     type,
     bgSlot: type === 'bodyguard' ? bgSlot : null,
     startedAt: now,
@@ -663,7 +663,7 @@ async function shoot(serverId, discordId, targetId) {
       data: {
         outcome: 'blocked_by_bodyguard',
         victimId: victim.discordId,
-        victimName: victim.username,
+        victimName: displayName(victim),
         bgSlot,
         bgName,
       },
@@ -791,7 +791,7 @@ async function shootBodyguard(serverId, attacker, victim, bgSlot) {
     payload: {
       attackerId: attacker.discordId,
       victimId: victim.discordId,
-      victimName: victim.username,
+      victimName: displayName(victim),
       bgSlot,
       bgName,
       bulletsUsed: bulletsToKill,
@@ -805,7 +805,7 @@ async function shootBodyguard(serverId, attacker, victim, bgSlot) {
       outcome: 'kill_bodyguard',
       attackerId: attacker.discordId,
       victimId: victim.discordId,
-      victimName: victim.username,
+      victimName: displayName(victim),
       bgSlot,
       bgName,
       bulletsUsed: bulletsToKill,
@@ -876,7 +876,7 @@ async function shootPlayer(serverId, attacker, victim) {
       payload: {
         attackerId: attacker.discordId,
         victimId: victim.discordId,
-        victimName: victim.username,
+        victimName: displayName(victim),
         damage,
         newHp,
         bulletsUsed: bulletsToKill,
@@ -890,7 +890,7 @@ async function shootPlayer(serverId, attacker, victim) {
         outcome: 'damage_player',
         attackerId: attacker.discordId,
         victimId: victim.discordId,
-        victimName: victim.username,
+        victimName: displayName(victim),
         damage,
         newHp,
         bulletsUsed: bulletsToKill,
@@ -954,7 +954,7 @@ async function shootPlayer(serverId, attacker, victim) {
     payload: {
       attackerId: attacker.discordId,
       victimId: victim.discordId,
-      victimName: victim.username,
+      victimName: displayName(victim),
       bulletsUsed: bulletsToKill,
       cashStolen,
       bulletsStolen,
@@ -967,9 +967,9 @@ async function shootPlayer(serverId, attacker, victim) {
     data: {
       outcome: 'kill_player',
       attackerId: attacker.discordId,
-      attackerName: attacker.username,
+      attackerName: displayName(attacker),
       victimId: victim.discordId,
-      victimName: victim.username,
+      victimName: displayName(victim),
       bulletsUsed: bulletsToKill,
       bulletsRemaining: attackerUpdates.bullets,
       cashStolen,

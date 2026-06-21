@@ -29,6 +29,7 @@ const {
   renderBodyguardsPanel,
   renderBodyguardPurchaseResult,
 } = require('./renderers/combatRenderer');
+const { displayName } = require('../utils/helpers');
 const embeds = require('../utils/embeds');
 
 // ── Helpers ───────────────────────────────────
@@ -80,7 +81,7 @@ async function getSearchCandidates(serverId, discordId, player) {
       if (!candidates.has(p.discordId)) {
         candidates.set(p.discordId, {
           discordId: p.discordId,
-          username: p.username ?? p.discordId,
+          username: displayName(p),
           bodyguards: {},
         });
       }
@@ -326,7 +327,7 @@ async function handleSelect(interaction) {
 
     // ── Witness broadcast on kills / BG kills ──
     if (result.success && (result.data.outcome === 'kill_player' || result.data.outcome === 'kill_bodyguard')) {
-      const attackerName = attackerBefore?.username ?? interaction.user.username;
+      const attackerName = displayName(attackerBefore) !== 'Unknown' ? displayName(attackerBefore) : interaction.user.username;
       const attackerRankIdx = combatService.rankIndex(attackerBefore ?? {});
       const state = attackerBefore?.state;
 

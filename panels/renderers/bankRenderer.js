@@ -9,7 +9,7 @@ const {
   TextInputBuilder, TextInputStyle,
 } = require('discord.js');
 const embeds     = require('../../utils/embeds');
-const { formatCash } = require('../../utils/helpers');
+const { formatCash, displayName } = require('../../utils/helpers');
 
 const PRESETS = [1000, 5000, 10000, 25000, 50000];
 
@@ -87,7 +87,7 @@ function renderBankHome(player, bankLimit) {
 
 function renderTransferSelect(alivePlayers, playerCash) {
   const options = alivePlayers.slice(0, 25).map(p => ({
-    label: p.username ?? p.discordId,
+    label: displayName(p),
     value: p.discordId,
   }));
 
