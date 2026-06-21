@@ -576,7 +576,7 @@ const OC_TYPES = {
   },
 };
 
-const OC_LINK_EXPIRY       = 900;  // 15 minutes in seconds
+const OC_LINK_EXPIRY       = 21600; // 6 hours in seconds
 const OC_CRITICAL_FAIL_PCT = 0.20; // roll below 20% of success rate → all jailed
 
 // ── GAMBLING ─────────────────────────────────

@@ -22,6 +22,7 @@ const {
   renderNoCrew,
   renderCrewHome,
   renderKickPanel,
+  renderDisbandConfirm,
   renderLeaveConfirm,
   renderCrewCreateResult,
   renderCrewJoinResult,
@@ -79,6 +80,28 @@ async function handle(interaction) {
     await interaction.deferUpdate();
     const result = await crewService.leaveCrew(serverId, discordId);
     return interaction.editReply(renderLeaveResult(result));
+  }
+
+  // ── panel_crew_disband — confirmation ────
+  if (customId === 'panel_crew_disband') {
+    await interaction.deferUpdate();
+    const player = await playerRepository.getPlayer(serverId, discordId);
+    if (!player?.crewId) return safeFollowUp(interaction, { embeds: [embeds.error('You're not in a crew.')] });
+    const crew = await crewRepository.getCrew(serverId, player.crewId);
+    if (!crew) return safeFollowUp(interaction, { embeds: [embeds.error('Crew not found.')] });
+    if (crew.leaderId !== discordId) return safeFollowUp(interaction, { embeds: [embeds.error('Only the leader can disband the crew.')] });
+    return interaction.editReply(renderDisbandConfirm(crew));
+  }
+
+  // ── panel_crew_disband_confirm ────────────
+  if (customId === 'panel_crew_disband_confirm') {
+    await interaction.deferUpdate();
+    const result = await crewService.disbandCrew(serverId, discordId);
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('panel_home').setLabel('🏠 Home').setStyle(ButtonStyle.Secondary)
+    );
+    if (!result.success) return interaction.editReply({ embeds: [embeds.failure('Disband', result.message)], components: [row] });
+    return interaction.editReply({ embeds: [embeds.success('Crew Disbanded', result.message)], components: [row] });
   }
 
   // ── Modal openers — NO defer before showModal ──

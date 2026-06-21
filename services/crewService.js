@@ -148,4 +148,28 @@ async function kickMember(serverId, leaderId, targetId) {
   return { success: true, message: `**${targetName}** has been kicked.`, data: { targetId } };
 }
 
-module.exports = { create, joinCrew, leaveCrew, kickMember };
+async function disbandCrew(serverId, discordId) {
+  const player = await playerRepository.getPlayer(serverId, discordId);
+  if (!player?.crewId) return { success: false, message: 'You are not in a crew.', data: {} };
+
+  const crew = await crewRepository.getCrew(serverId, player.crewId);
+  if (!crew) return { success: false, message: 'Crew not found.', data: {} };
+  if (crew.leaderId !== discordId) return { success: false, message: 'Only the leader can disband the crew.', data: {} };
+
+  // Clear crewId from all members
+  const memberIds = Object.keys(crew.members ?? {});
+  await Promise.all(memberIds.map(id =>
+    playerRepository.updatePlayer(serverId, id, { crewId: null, crewRole: null })
+  ));
+
+  await crewRepository.deleteCrew(serverId, player.crewId);
+
+  logRepository.write(serverId, {
+    discordId, actionType: ACTION_TYPES.SOCIAL, actionName: 'crew_disband',
+    payload: { crewId: player.crewId, crewName: crew.name, memberCount: memberIds.length },
+  }).catch(() => {});
+
+  return { success: true, message: `**${crew.name}** has been disbanded.`, data: {} };
+}
+
+module.exports = { create, joinCrew, leaveCrew, kickMember, disbandCrew };

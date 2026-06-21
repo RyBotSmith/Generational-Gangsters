@@ -70,7 +70,11 @@ function renderCrewHome(crew, player) {
         .setCustomId('panel_crew_kick')
         .setLabel('👢 Kick Member')
         .setStyle(ButtonStyle.Danger)
-        .setDisabled(memberList.length <= 1)
+        .setDisabled(memberList.length <= 1),
+      new ButtonBuilder()
+        .setCustomId('panel_crew_disband')
+        .setLabel('💀 Disband Crew')
+        .setStyle(ButtonStyle.Danger)
     ));
   } else {
     rows.push(new ActionRowBuilder().addComponents(
@@ -121,6 +125,26 @@ function renderKickPanel(crew) {
   );
 
   return { embeds: [embed], components: [row1, row2] };
+}
+
+// ── Disband confirmation (leader only) ───────────
+
+function renderDisbandConfirm(crew) {
+  const embed = embeds.base(embeds.COLOURS.warning)
+    .setTitle('💀 Disband Crew')
+    .setDescription(
+      `Are you sure you want to disband **${crew.name}**?
+
+` +
+      `All members will be removed. This cannot be undone.`
+    );
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('panel_crew_disband_confirm').setLabel('💀 Yes, Disband').setStyle(ButtonStyle.Danger),
+    new ButtonBuilder().setCustomId('panel_crew').setLabel('❌ Cancel').setStyle(ButtonStyle.Secondary)
+  );
+
+  return { embeds: [embed], components: [row] };
 }
 
 // ── Leave confirmation ────────────────────────
@@ -178,6 +202,7 @@ module.exports = {
   renderNoCrew,
   renderCrewHome,
   renderKickPanel,
+  renderDisbandConfirm,
   renderLeaveConfirm,
   renderCrewCreateResult,
   renderCrewJoinResult,
