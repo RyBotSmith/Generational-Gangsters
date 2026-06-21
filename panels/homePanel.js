@@ -28,7 +28,8 @@ async function handle(interaction) {
       return safeFollowUp(interaction, { embeds: [embeds.error('No player found. Use /start to create your character.')] });
     }
 
-    return interaction.editReply(renderHome(player));
+    const avatarUrl = interaction.user.displayAvatarURL({ size: 128 });
+    return interaction.editReply(renderHome(player, avatarUrl));
   }
 
   console.warn('[homePanel] Unhandled customId:', customId);

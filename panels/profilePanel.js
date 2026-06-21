@@ -34,7 +34,8 @@ async function handle(interaction) {
     if (!player) {
       return safeFollowUp(interaction, { embeds: [embeds.error('No player found. Use /start to create your character.')] });
     }
-    return interaction.editReply(renderProfileHome(player));
+    const avatarUrl = interaction.user.displayAvatarURL({ size: 128 });
+    return interaction.editReply(renderProfileHome(player, avatarUrl));
   }
 
   // ── panel_upgrades — show upgrades panel ──
@@ -114,7 +115,8 @@ async function handle(interaction) {
     if (!player) {
       return safeFollowUp(interaction, { embeds: [embeds.error('No player found.')] });
     }
-    return interaction.editReply(renderStatsPanel(player));
+    const avatarUrl = interaction.user.displayAvatarURL({ size: 128 });
+    return interaction.editReply(renderStatsPanel(player, avatarUrl));
   }
 
   console.warn('[profilePanel] Unhandled customId:', customId);

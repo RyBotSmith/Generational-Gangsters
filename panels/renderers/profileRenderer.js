@@ -14,7 +14,7 @@ const { RANKS, WEAPONS, ARMOUR, VEHICLES, UPGRADES, BODYGUARD_COSTS } = require(
  * Render the full profile panel.
  * @param {object} player
  */
-function renderProfileHome(player) {
+function renderProfileHome(player, avatarUrl = null) {
   const rankIdx = getRankIndex(player.xp ?? 0, RANKS);
   const rank    = RANKS[rankIdx];
   const inv     = player.inventory ?? {};
@@ -69,6 +69,7 @@ function renderProfileHome(player) {
 
   const embed = embeds.base(embeds.COLOURS.dark)
     .setTitle(`👤 ${displayName(player)}`)
+    .setThumbnail(avatarUrl)
     .setDescription(
       `**${rank.name}** · Prestige ${player.prestige ?? 0}/5 · ❤️ ${player.health ?? 100}/100`
     )
@@ -261,7 +262,7 @@ function renderUpgradePurchaseResult(result) {
  * Render the stats panel.
  * @param {object} player
  */
-function renderStatsPanel(player) {
+function renderStatsPanel(player, avatarUrl = null) {
   const s   = player.stats ?? {};
   const inv = player.inventory ?? {};
 
@@ -300,7 +301,8 @@ function renderStatsPanel(player) {
     : `-${formatCash(Math.abs(netGamble))}`;
 
   const embed = embeds.base(embeds.COLOURS.info)
-    .setTitle(`📊 ${displayName(player)}`);
+    .setTitle(`📊 ${displayName(player)}`)
+    .setThumbnail(avatarUrl);
 
   // Only show buff summary if player has any buffs
   if (crimeTotalBuff > 0 || gtaTotalBuff > 0) {

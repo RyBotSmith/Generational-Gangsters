@@ -39,7 +39,7 @@ const PRESTIGE_BADGES = ['', '⭐', '⭐⭐', '⭐⭐⭐', '💜', '💠'];
  * Build the home panel embed + nav buttons.
  * @param {object} player  — full player document
  */
-function renderHome(player) {
+function renderHome(player, avatarUrl = null) {
   const rankIdx  = getRankIndex(player.xp ?? 0, RANKS);
   const rank     = RANKS[rankIdx];
   const nextRank = RANKS[rankIdx + 1] ?? null;
@@ -100,6 +100,8 @@ function renderHome(player) {
       { name: '📈 Progress', value: progressStr }
     )
     .setFooter({ text: footerText });
+
+  if (avatarUrl) embed.setThumbnail(avatarUrl);
 
   // Nav buttons — row 1: core actions
   const row1 = new ActionRowBuilder().addComponents(
