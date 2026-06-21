@@ -3,9 +3,7 @@
 //  Rule: NO game logic. NO direct game-rule math.
 //  Defer → call service → render result.
 //
-//  Scope: solo passive crew system only (no invite/join/leave/roles).
-//  /crew create itself is handled in commands/crew.js — this panel
-//  handles the crew home view, hiring thugs, and collecting thug income.
+//  UPDATED: Added crew upgrades route (panel_crew_upgrades, panel_crew_upgrade_{id})
 // ─────────────────────────────────────────────
 
 const crewService      = require('../services/crewService');
@@ -14,6 +12,8 @@ const playerRepository = require('../repositories/playerRepository');
 const {
   renderNoCrew,
   renderCrewHome,
+  renderCrewUpgrades,
+  renderUpgradeResult,
   renderHireResult,
   renderCollectResult,
 } = require('./renderers/crewRenderer');
@@ -32,7 +32,7 @@ async function handle(interaction) {
   const serverId      = interaction.guildId;
   const discordId     = interaction.user.id;
 
-  // ── panel_crew (root — show crew home, auto-process thugs) ──
+  // ── panel_crew (root — show crew home) ────
   if (customId === 'panel_crew' || customId === 'panelm_crew') {
     await interaction.deferUpdate();
 
@@ -42,51 +42,67 @@ async function handle(interaction) {
     }
 
     if (!player.crewId) {
-      const payload = renderNoCrew(player);
-      return interaction.editReply(payload);
+      return interaction.editReply(renderNoCrew(player));
     }
 
-    // Auto-process (no collect) so pending amounts reflect elapsed time.
     const processResult = await crewService.processThugs(serverId, discordId, { collect: false });
     const crew = processResult.data?.crew ?? await crewRepository.getCrew(serverId, player.crewId);
 
     if (!crew) {
-      const payload = renderNoCrew(player);
-      return interaction.editReply(payload);
+      return interaction.editReply(renderNoCrew(player));
     }
 
     const income  = crewService.getThugIncome(crew);
-    const payload = renderCrewHome(crew, income);
-    return interaction.editReply(payload);
+    return interaction.editReply(renderCrewHome(crew, income));
   }
 
   // ── panel_crew_hire ────────────────────────
   if (customId === 'panel_crew_hire') {
     await interaction.deferUpdate();
-
-    const result  = await crewService.hireThug(serverId, discordId);
-    const payload = renderHireResult(result);
-    return interaction.editReply(payload);
+    const result = await crewService.hireThug(serverId, discordId);
+    return interaction.editReply(renderHireResult(result));
   }
 
   // ── panel_crew_collect ─────────────────────
   if (customId === 'panel_crew_collect') {
     await interaction.deferUpdate();
+    const result = await crewService.processThugs(serverId, discordId, { collect: true });
+    return interaction.editReply(renderCollectResult(result));
+  }
 
-    const result  = await crewService.processThugs(serverId, discordId, { collect: true });
-    const payload = renderCollectResult(result);
-    return interaction.editReply(payload);
+  // ── panel_crew_upgrades — show upgrades ────
+  if (customId === 'panel_crew_upgrades') {
+    await interaction.deferUpdate();
+
+    const player = await playerRepository.getPlayer(serverId, discordId);
+    if (!player?.crewId) {
+      return safeFollowUp(interaction, { embeds: [embeds.error('You need a crew to view upgrades.')] });
+    }
+
+    const crew = await crewRepository.getCrew(serverId, player.crewId);
+    if (!crew) {
+      return safeFollowUp(interaction, { embeds: [embeds.error('Crew not found.')] });
+    }
+
+    return interaction.editReply(renderCrewUpgrades(crew, player.cash ?? 0));
+  }
+
+  // ── panel_crew_upgrade_{upgradeId} — buy upgrade ──
+  if (customId.startsWith('panel_crew_upgrade_')) {
+    const upgradeId = customId.replace('panel_crew_upgrade_', '');
+    await interaction.deferUpdate();
+
+    const result = await crewService.purchaseUpgrade(serverId, discordId, upgradeId);
+    return interaction.editReply(renderUpgradeResult(result));
   }
 
   console.warn('[crewPanel] Unhandled customId:', customId);
 }
 
-// No modals in crew panel (creation handled via /crew create command, not modal)
 async function handleModal(interaction) {
   console.warn('[crewPanel] Unexpected modal:', interaction.customId);
 }
 
-// No select menus in crew panel
 async function handleSelect(interaction) {
   console.warn('[crewPanel] Unexpected select:', interaction.customId);
 }

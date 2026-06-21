@@ -29,6 +29,7 @@ const businessPanel = require('./panels/businessPanel');
 const gamblingPanel = require('./panels/gamblingPanel');
 const profilePanel  = require('./panels/profilePanel');
 const adminPanel    = require('./panels/adminPanel');
+const ocPanel       = require('./panels/ocPanel');
 const startPanel    = require('./panels/startPanel');
 const homePanel     = require('./panels/homePanel');
 
@@ -105,6 +106,10 @@ const BUTTON_SELECT_ROUTES = {
   'panelm_profile':  (i) => profilePanel.handle(i),
   'panelm_upgrades': (i) => profilePanel.handle(i),
 
+  // ── OC panels ─────────────────────────────
+  'panel_oc':        (i) => ocPanel.handle(i),
+  'panelm_oc':       (i) => ocPanel.handle(i),
+
   // ── Admin panels (ap2_ / apm2_) ───────────
   'ap2_':  (i) => adminPanel.handle(i),
   'apm2_': (i) => adminPanel.handle(i),
@@ -128,6 +133,8 @@ const MODAL_ROUTES = {
   'modal_travel':   (i) => travelPanel.handleModal(i),
   'modal_business': (i) => businessPanel.handleModal(i),
   'modal_gamble':   (i) => gamblingPanel.handleModal(i),
+  'modal_oc':           (i) => ocPanel.handleModal(i),
+  'modal_submit_oc':    (i) => ocPanel.handleModal(i),
   'modal_profile':  (i) => profilePanel.handleModal(i),
   'modal_admin':    (i) => adminPanel.handleModal(i),
   'modal_start':    (i) => startPanel.handleModal(i),

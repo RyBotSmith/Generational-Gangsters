@@ -1,13 +1,18 @@
 // ─────────────────────────────────────────────
 //  crewRenderer.js  —  Embed builders for crew results.
 //  Rule: No game logic. No DB access. Embeds only.
-//  Scope: solo passive crew system (create + workers only).
+//
+//  UPDATED: Added OC entry point to crew home, added crew upgrades panel.
 // ─────────────────────────────────────────────
 
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const embeds = require('../../utils/embeds');
 const { formatCash } = require('../../utils/helpers');
-const { CREW_CREATION_COST, CREW_WORKER_SLOTS } = require('../../data/constants');
+const {
+  CREW_CREATION_COST,
+  CREW_WORKER_SLOTS,
+  CREW_UPGRADES,
+} = require('../../data/constants');
 
 function homeRow(extra = []) {
   return new ActionRowBuilder().addComponents(
@@ -21,21 +26,22 @@ function homeRow(extra = []) {
 
 // ── No-crew panel ──────────────────────────────
 
-/**
- * Render the panel shown to players without a crew — prompts to create one.
- */
 function renderNoCrew(player) {
   const embed = embeds.base(embeds.COLOURS.dark)
     .setTitle('👥 Crew')
     .setDescription(
       `You don't have a crew yet.\n\n` +
       `Founding a crew costs **${formatCash(CREW_CREATION_COST)}** and lets you hire ` +
-      `**thugs** to passively run crimes and GTA jobs for you.\n\n` +
+      `**thugs** to passively run crimes and GTA jobs for you, plus access to ` +
+      `**Organised Crime** missions with other players.\n\n` +
       `Use \`/crew create\` to found your crew.`
     );
 
   if ((player.cash ?? 0) < CREW_CREATION_COST) {
-    embed.addFields({ name: 'Balance', value: `${formatCash(player.cash ?? 0)} — not enough to found a crew yet.` });
+    embed.addFields({
+      name: 'Balance',
+      value: `${formatCash(player.cash ?? 0)} — not enough to found a crew yet.`,
+    });
   }
 
   return { embeds: [embed], components: [homeRow()] };
@@ -49,10 +55,10 @@ function renderNoCrew(player) {
  * @param {{ pendingCash, pendingXp, pendingBullets, workerCount }} income
  */
 function renderCrewHome(crew, income) {
-  const workers = crew.workers ?? {};
+  const workers    = crew.workers ?? {};
   const hiredCount = Object.keys(workers).length;
 
-  const slotIds = Object.keys(CREW_WORKER_SLOTS).map(Number).sort((a, b) => a - b);
+  const slotIds  = Object.keys(CREW_WORKER_SLOTS).map(Number).sort((a, b) => a - b);
   const nextSlot = slotIds.find(s => !(s in workers) && !(String(s) in workers));
 
   const lines = [
@@ -104,14 +110,108 @@ function renderCrewHome(crew, income) {
 
   const row1 = new ActionRowBuilder().addComponents(collectBtn, hireBtn);
 
-  return { embeds: [embed], components: [row1, homeRow()] };
+  const row2 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('panel_oc')
+      .setLabel('🎯 Organised Crime')
+      .setStyle(ButtonStyle.Danger),
+    new ButtonBuilder()
+      .setCustomId('panel_crew_upgrades')
+      .setLabel('⬆️ Crew Upgrades')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('panel_home')
+      .setLabel('🏠 Home')
+      .setStyle(ButtonStyle.Secondary)
+  );
+
+  return { embeds: [embed], components: [row1, row2] };
+}
+
+// ── Crew upgrades panel ────────────────────────
+
+/**
+ * Render the crew upgrades panel.
+ * @param {object} crew
+ * @param {number} playerCash
+ */
+function renderCrewUpgrades(crew, playerCash) {
+  const upgrades = crew.upgrades ?? {};
+
+  const upgradeLines = Object.entries(CREW_UPGRADES).map(([id, def]) => {
+    const currentLevel = upgrades[id] ?? 0;
+    const maxLevel     = def.maxLevel ?? 3;
+    const atMax        = currentLevel >= maxLevel;
+    const nextCost     = atMax ? null : def.baseCost * Math.pow(def.costMultiplier ?? 1.5, currentLevel);
+
+    if (atMax) {
+      return `✅ **${def.name}** — Lv ${currentLevel}/${maxLevel} (maxed)`;
+    }
+    return `**${def.name}** — Lv ${currentLevel}/${maxLevel} • Next: ${formatCash(Math.floor(nextCost))}`;
+  });
+
+  const embed = embeds.base(embeds.COLOURS.purple)
+    .setTitle(`⬆️ ${crew.name} — Upgrades`)
+    .setDescription(upgradeLines.join('\n'))
+    .setFooter({ text: `Your cash: ${formatCash(playerCash)}` });
+
+  // Build upgrade buttons — one per non-maxed upgrade, up to 5 per row
+  const upgradeButtons = Object.entries(CREW_UPGRADES)
+    .filter(([id, def]) => (upgrades[id] ?? 0) < (def.maxLevel ?? 3))
+    .map(([id, def]) => {
+      const currentLevel = upgrades[id] ?? 0;
+      const cost = Math.floor(def.baseCost * Math.pow(def.costMultiplier ?? 1.5, currentLevel));
+      const canAfford = playerCash >= cost;
+      return new ButtonBuilder()
+        .setCustomId(`panel_crew_upgrade_${id}`)
+        .setLabel(`${def.name} (${formatCash(cost)})`)
+        .setStyle(canAfford ? ButtonStyle.Primary : ButtonStyle.Secondary)
+        .setDisabled(!canAfford);
+    });
+
+  const rows = [];
+
+  // Chunk buttons into rows of 5
+  for (let i = 0; i < upgradeButtons.length; i += 5) {
+    rows.push(new ActionRowBuilder().addComponents(...upgradeButtons.slice(i, i + 5)));
+  }
+
+  rows.push(
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('panel_crew').setLabel('⬅ Crew').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('panel_home').setLabel('🏠 Home').setStyle(ButtonStyle.Secondary)
+    )
+  );
+
+  return { embeds: [embed], components: rows };
+}
+
+// ── Upgrade result ────────────────────────────
+
+function renderUpgradeResult(result) {
+  if (!result.success) {
+    return {
+      embeds: [embeds.failure('Crew Upgrade', result.message)],
+      components: [
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId('panel_crew_upgrades').setLabel('⬅ Upgrades').setStyle(ButtonStyle.Secondary)
+        ),
+      ],
+    };
+  }
+
+  const embed = embeds.success('Upgrade Purchased!', result.message);
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('panel_crew_upgrades').setLabel('⬆️ Upgrades').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('panel_crew').setLabel('👥 Crew').setStyle(ButtonStyle.Secondary)
+  );
+
+  return { embeds: [embed], components: [row] };
 }
 
 // ── Result renderers ──────────────────────────
 
-/**
- * Render the result of crewService.create().
- */
 function renderCrewCreateResult(result) {
   if (!result.success) {
     return {
@@ -136,64 +236,44 @@ function renderCrewCreateResult(result) {
   return { embeds: [embed], components: [row] };
 }
 
-/**
- * Render the result of crewService.hireThug().
- */
 function renderHireResult(result) {
   if (!result.success) {
     return {
       embeds: [embeds.failure('Hire Thug', result.message)],
       components: [
         new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId('panel_crew')
-            .setLabel('⬅ Back')
-            .setStyle(ButtonStyle.Secondary)
+          new ButtonBuilder().setCustomId('panel_crew').setLabel('⬅ Back').setStyle(ButtonStyle.Secondary)
         ),
       ],
     };
   }
 
   const embed = embeds.success('Thug Hired!', result.message);
-
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId('panel_crew')
-      .setLabel('👥 View Crew')
-      .setStyle(ButtonStyle.Primary)
+  const row   = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('panel_crew').setLabel('👥 View Crew').setStyle(ButtonStyle.Primary)
   );
 
   return { embeds: [embed], components: [row] };
 }
 
-/**
- * Render the result of crewService.processThugs() with collect=true.
- */
 function renderCollectResult(result) {
   if (!result.success) {
     return {
       embeds: [embeds.failure('Collect', result.message)],
       components: [
         new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId('panel_crew')
-            .setLabel('⬅ Back')
-            .setStyle(ButtonStyle.Secondary)
+          new ButtonBuilder().setCustomId('panel_crew').setLabel('⬅ Back').setStyle(ButtonStyle.Secondary)
         ),
       ],
     };
   }
 
   if (!result.data?.collected) {
-    const embed = embeds.info('Nothing to Collect', result.message);
     return {
-      embeds: [embed],
+      embeds: [embeds.info('Nothing to Collect', result.message)],
       components: [
         new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId('panel_crew')
-            .setLabel('⬅ Back')
-            .setStyle(ButtonStyle.Secondary)
+          new ButtonBuilder().setCustomId('panel_crew').setLabel('⬅ Back').setStyle(ButtonStyle.Secondary)
         ),
       ],
     };
@@ -202,14 +282,8 @@ function renderCollectResult(result) {
   const embed = embeds.success('Thug Earnings Collected!', result.message);
 
   const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId('panel_crew')
-      .setLabel('👥 View Crew')
-      .setStyle(ButtonStyle.Primary),
-    new ButtonBuilder()
-      .setCustomId('panel_home')
-      .setLabel('🏠 Home')
-      .setStyle(ButtonStyle.Secondary)
+    new ButtonBuilder().setCustomId('panel_crew').setLabel('👥 View Crew').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('panel_home').setLabel('🏠 Home').setStyle(ButtonStyle.Secondary)
   );
 
   return { embeds: [embed], components: [row] };
@@ -218,6 +292,8 @@ function renderCollectResult(result) {
 module.exports = {
   renderNoCrew,
   renderCrewHome,
+  renderCrewUpgrades,
+  renderUpgradeResult,
   renderCrewCreateResult,
   renderHireResult,
   renderCollectResult,
