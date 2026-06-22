@@ -160,6 +160,7 @@ async function getTraffickingState(serverId, discordId) {
       boozeCarried,
       drugsCarried,
       inventory: player.inventory ?? {},
+      products: PRODUCTS,
     },
   };
 }

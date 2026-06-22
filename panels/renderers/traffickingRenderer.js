@@ -3,7 +3,7 @@
 //  Rule: No game logic. No DB access. Embeds only.
 // ─────────────────────────────────────────────
 
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
 const embeds     = require('../../utils/embeds');
 const { formatCash } = require('../../utils/helpers');
 
@@ -87,7 +87,6 @@ function renderBoozePanel(data) {
 
   const rows = [];
 
-  const { StringSelectMenuBuilder } = require('discord.js');
   const boozeOptions = unlockedBooze.map(p => {
     const prices = statePrices?.booze?.[p.id];
     const owned  = booze[p.id] ?? 0;
@@ -190,7 +189,6 @@ function renderDrugsPanel(data) {
   const rows = [];
 
   // Dropdown to select which drug to buy
-  const { StringSelectMenuBuilder } = require('discord.js');
   const drugOptions = unlockedDrugs.map(p => {
     const prices = statePrices?.drugs?.[p.id];
     const owned  = drugs[p.id] ?? 0;
@@ -238,9 +236,8 @@ function renderDrugsPanel(data) {
  * Shows buy amount buttons for that specific product.
  */
 function renderBuyAmountPanel(data, productId, type) {
-  const { player, statePrices, boozeCapacity, drugCapacity, boozeCarried, drugsCarried, inventory } = data;
-  const { PRODUCTS } = require('../services/traffickingService');
-  const product  = PRODUCTS[type]?.[productId];
+  const { player, statePrices, boozeCapacity, drugCapacity, boozeCarried, drugsCarried, inventory, products } = data;
+  const product  = products?.[type]?.[productId];
   const prices   = statePrices?.[type]?.[productId];
   const capacity = type === 'booze' ? boozeCapacity : drugCapacity;
   const carried  = type === 'booze' ? boozeCarried  : drugsCarried;
