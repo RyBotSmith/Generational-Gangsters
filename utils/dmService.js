@@ -3,23 +3,21 @@
 //  Rule: Fire-and-forget only. Never throws. Never awaited by caller.
 //  Called from panel layer (has Discord client access).
 //
+//  Attacker identity is NEVER revealed in victim DMs.
+//  Witness statements are the only way to find out who shot you.
+//
 //  Exports:
-//    dmShot(client, victim, data)         — you were hit / killed
-//    dmBodyguardKilled(client, owner, data) — your BG was taken out
-//    dmRaid(client, owner, data)          — your business was raided
+//    dmShot(client, victimId, data)           — you were hit / killed
+//    dmBodyguardKilled(client, ownerId, data) — your BG was taken out
+//    dmRaid(client, ownerId, data)            — your business was raided
 // ─────────────────────────────────────────────
 
 const { EmbedBuilder } = require('discord.js');
 
-// ── Colour palette ────────────────────────────
 const COLOURS = {
   danger:  0xE74C3C,
   warning: 0xF39C12,
-  info:    0x3498DB,
-  dark:    0x2C2F33,
 };
-
-// ── Helpers ───────────────────────────────────
 
 function formatCash(n) {
   return `$${Math.floor(n ?? 0).toLocaleString('en-US')}`;
@@ -37,49 +35,37 @@ async function sendDM(client, discordId, payload) {
 // ── Shot / Kill notification ──────────────────
 
 /**
- * DM the victim after they're shot or killed.
- * @param {object} client      — discord.js Client
- * @param {string} victimId    — Discord ID of the victim
- * @param {object} data        — from combatService result.data
- *   data.outcome              'damage_player' | 'kill_player'
- *   data.attackerName         string
- *   data.damage               number (HP)
- *   data.newHp                number
- *   data.cashStolen           number (kill only)
- *   data.bulletsStolen        number (kill only)
- *   data.hospitalizedUntil    epoch ms (kill only)
- *   data.armourBroke          bool
- *   data.headwearBroke        bool
+ * DM the victim after they are shot or killed.
+ * Attacker identity is deliberately withheld.
  */
 function dmShot(client, victimId, data) {
   const isKill = data.outcome === 'kill_player';
 
   const extras = [];
-  if (data.armourBroke)   extras.push('🛡️ Your armour was destroyed.');
-  if (data.headwearBroke) extras.push('⛑️ Your headwear was destroyed.');
+  if (data.armourBroke)    extras.push('🛡️ Your armour was destroyed.');
+  if (data.headwearBroke)  extras.push('⛑️ Your headwear was destroyed.');
 
-  let embed;
+  let desc;
 
   if (isKill) {
-    embed = new EmbedBuilder()
-      .setColor(COLOURS.danger)
-      .setTitle('💀 You\'ve Been Killed')
-      .setDescription(
-        `**${data.attackerName ?? 'Someone'}** gunned you down.\n\n` +
-        `💸 Lost: **${formatCash(data.cashStolen ?? 0)}** cash · **${(data.bulletsStolen ?? 0).toLocaleString()} bullets**\n` +
-        `🏥 Respawn: <t:${Math.floor((data.hospitalizedUntil ?? Date.now()) / 1000)}:R>` +
-        (extras.length ? `\n\n${extras.join('\n')}` : '')
-      );
+    desc =
+      `You were gunned down by an unknown assailant.\n\n` +
+      `💸 Lost: **${formatCash(data.cashStolen ?? 0)}** cash · **${(data.bulletsStolen ?? 0).toLocaleString()} bullets**\n` +
+      `🏥 Respawn: <t:${Math.floor((data.hospitalizedUntil ?? Date.now()) / 1000)}:R>\n\n` +
+      `*Witnesses in the area may know who pulled the trigger.*`;
   } else {
-    embed = new EmbedBuilder()
-      .setColor(COLOURS.warning)
-      .setTitle('🔫 You\'ve Been Shot')
-      .setDescription(
-        `**${data.attackerName ?? 'Someone'}** opened fire on you.\n\n` +
-        `❤️ Health: **${data.newHp ?? '?'}/100** (-${data.damage ?? '?'} HP)` +
-        (extras.length ? `\n\n${extras.join('\n')}` : '')
-      );
+    desc =
+      `Someone opened fire on you.\n\n` +
+      `❤️ Health: **${data.newHp ?? '?'}/100** (-${data.damage ?? '?'} HP)\n\n` +
+      `*You didn't get a clear look at who fired.*`;
   }
+
+  if (extras.length) desc += `\n\n${extras.join('\n')}`;
+
+  const embed = new EmbedBuilder()
+    .setColor(isKill ? COLOURS.danger : COLOURS.warning)
+    .setTitle(isKill ? '💀 You\'ve Been Killed' : '🔫 You\'ve Been Shot')
+    .setDescription(desc);
 
   sendDM(client, victimId, { embeds: [embed] }).catch(() => {});
 }
@@ -88,24 +74,22 @@ function dmShot(client, victimId, data) {
 
 /**
  * DM the BG owner after one of their bodyguards is killed.
- * @param {object} client      — discord.js Client
- * @param {string} ownerId     — Discord ID of the BG owner
- * @param {object} data        — from combatService result.data (kill_bodyguard)
- *   data.attackerName         string
- *   data.bgName               string
- *   data.bgSlot               number
- *   data.remainingBodyguards  bool — any BGs still alive?
+ * Attacker identity is deliberately withheld.
  */
 function dmBodyguardKilled(client, ownerId, data) {
+  const bgLabel = data.bgName ?? `Slot ${data.bgSlot} Bodyguard`;
+
+  const desc =
+    `**${bgLabel}** has been taken out by an unknown attacker.\n\n` +
+    (data.remainingBodyguards
+      ? `⚠️ You still have bodyguards protecting you.`
+      : `🚨 **You have no bodyguards left. You are exposed.**`) +
+    `\n\n*Witnesses in the area may have seen who did it.*`;
+
   const embed = new EmbedBuilder()
     .setColor(COLOURS.warning)
     .setTitle('🛡️ Bodyguard Down')
-    .setDescription(
-      `**${data.attackerName ?? 'Someone'}** just took out **${data.bgName ?? `Slot ${data.bgSlot} Bodyguard`}**.\n\n` +
-      `${data.remainingBodyguards
-        ? '⚠️ You still have bodyguards protecting you.'
-        : '🚨 **You have no bodyguards left. You are exposed.**'}`
-    );
+    .setDescription(desc);
 
   sendDM(client, ownerId, { embeds: [embed] }).catch(() => {});
 }
@@ -114,34 +98,25 @@ function dmBodyguardKilled(client, ownerId, data) {
 
 /**
  * DM the business owner after their business is raided.
- * @param {object} client      — discord.js Client
- * @param {string} ownerId     — Discord ID of the business owner
- * @param {object} data        — from businessService result.data
- *   data.raiderName           string
- *   data.businessName         string
- *   data.pendingStolen        number
- *   data.newRaidCount         number
- *   data.ownerEvicted         bool
- *   data.newRaidCountNeeded   number (BUSINESS_RAIDS_TO_LOSE)
+ * Raider identity IS revealed here — raids are not anonymous.
  */
 function dmRaid(client, ownerId, data) {
-  const embed = data.ownerEvicted
-    ? new EmbedBuilder()
-        .setColor(COLOURS.danger)
-        .setTitle('🏢 Business Lost!')
-        .setDescription(
-          `**${data.raiderName ?? 'Someone'}** completed their 5th raid on your **${data.businessName ?? 'business'}**.\n\n` +
-          `💸 **${formatCash(data.pendingStolen ?? 0)}** stolen · Your business has been seized and relocated.`
-        )
-    : new EmbedBuilder()
-        .setColor(COLOURS.warning)
-        .setTitle('🚨 Business Raided')
-        .setDescription(
-          `**${data.raiderName ?? 'Someone'}** hit your **${data.businessName ?? 'business'}**.\n\n` +
-          `💸 **${formatCash(data.pendingStolen ?? 0)}** stolen\n` +
-          `⚠️ Raid count: **${data.newRaidCount ?? '?'}/${data.newRaidCountNeeded ?? 5}** — ` +
-          `${(data.newRaidCountNeeded ?? 5) - (data.newRaidCount ?? 0)} more raid(s) until eviction.`
-        );
+  const raiderName   = data.raiderName ?? 'Someone';
+  const businessName = data.businessName ?? 'your business';
+  const raidsLeft    = (data.newRaidCountNeeded ?? 5) - (data.newRaidCount ?? 0);
+
+  const desc = data.ownerEvicted
+    ? `**${raiderName}** completed their 5th raid on your **${businessName}**.\n\n` +
+      `💸 **${formatCash(data.pendingStolen ?? 0)}** stolen · Your business has been seized and relocated.`
+    : `**${raiderName}** hit your **${businessName}**.\n\n` +
+      `💸 **${formatCash(data.pendingStolen ?? 0)}** stolen\n` +
+      `⚠️ Raid count: **${data.newRaidCount ?? '?'}/${data.newRaidCountNeeded ?? 5}** — ` +
+      `${raidsLeft} more raid${raidsLeft === 1 ? '' : 's'} until eviction.`;
+
+  const embed = new EmbedBuilder()
+    .setColor(data.ownerEvicted ? COLOURS.danger : COLOURS.warning)
+    .setTitle(data.ownerEvicted ? '🏢 Business Lost!' : '🚨 Business Raided')
+    .setDescription(desc);
 
   sendDM(client, ownerId, { embeds: [embed] }).catch(() => {});
 }
