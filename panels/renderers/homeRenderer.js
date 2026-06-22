@@ -103,7 +103,7 @@ function renderHome(player, avatarUrl = null) {
 
   if (avatarUrl) embed.setThumbnail(avatarUrl);
 
-  // Nav buttons — row 1: core actions
+  // Row 1: Crimes · GTA · Combat
   const row1 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('panel_crime')
@@ -114,36 +114,36 @@ function renderHome(player, avatarUrl = null) {
       .setLabel('🚗 GTA')
       .setStyle(ButtonStyle.Danger),
     new ButtonBuilder()
-      .setCustomId('panel_travel')
-      .setLabel('✈️ Travel')
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
       .setCustomId('panel_combat')
       .setLabel('⚔️ Combat')
-      .setStyle(ButtonStyle.Danger),
-    new ButtonBuilder()
-      .setCustomId('panel_shop')
-      .setLabel('🛒 Shop')
-      .setStyle(ButtonStyle.Success)
+      .setStyle(ButtonStyle.Danger)
   );
 
-  // Row 2: trafficking, bank, business, profile, gamble
+  // Row 2: OC · Trafficking · Travel
   const row2 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('panel_oc')
+      .setLabel('🎯 OC')
+      .setStyle(ButtonStyle.Danger),
     new ButtonBuilder()
       .setCustomId('panel_traffic')
       .setLabel('🚬 Trafficking')
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
-      .setCustomId('panel_bank')
-      .setLabel('🏦 Bank')
-      .setStyle(ButtonStyle.Secondary),
+      .setCustomId('panel_travel')
+      .setLabel('✈️ Travel')
+      .setStyle(ButtonStyle.Secondary)
+  );
+
+  // Row 3: Business · Crew · Gamble
+  const row3 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('panel_business')
       .setLabel('🏢 Business')
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
-      .setCustomId('panel_profile')
-      .setLabel('👤 Profile')
+      .setCustomId('panel_crew')
+      .setLabel('👥 Crew')
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('panel_gamble')
@@ -151,19 +151,23 @@ function renderHome(player, avatarUrl = null) {
       .setStyle(ButtonStyle.Secondary)
   );
 
-  // Row 3: crew + OC
-  const row3 = new ActionRowBuilder().addComponents(
+  // Row 4: Bank · Profile · Shop
+  const row4 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId('panel_crew')
-      .setLabel('👥 Crew')
+      .setCustomId('panel_bank')
+      .setLabel('🏦 Bank')
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
-      .setCustomId('panel_oc')
-      .setLabel('🎯 Organised Crime')
-      .setStyle(ButtonStyle.Danger)
+      .setCustomId('panel_shop')
+      .setLabel('🛒 Shop')
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId('panel_profile')
+      .setLabel('👤 Profile')
+      .setStyle(ButtonStyle.Secondary)
   );
 
-  return { embeds: [embed], components: [row1, row2, row3] };
+  return { embeds: [embed], components: [row1, row2, row3, row4] };
 }
 
 module.exports = { renderHome };
