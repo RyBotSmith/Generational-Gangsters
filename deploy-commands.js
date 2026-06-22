@@ -35,6 +35,11 @@ const commands = [
 
   // ── Admin commands ────────────────────────
   new SlashCommandBuilder()
+    .setName('dmtest')
+    .setDescription('DEV: fire all DM types at yourself')
+    .setDefaultMemberPermissions(0),
+
+  new SlashCommandBuilder()
     .setName('gadmin')
     .setDescription('Open the admin panel (staff only)')
     .setDefaultMemberPermissions(0),

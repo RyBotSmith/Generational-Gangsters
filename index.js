@@ -47,6 +47,7 @@ const gamblingCommand = require('./commands/gambling');
 const adminCommand    = require('./commands/admin');
 const startCommand    = require('./commands/start');
 const gadminCommand   = require('./commands/gadmin');
+const dmtestCommand   = require('./commands/dmtest');
 
 // ── Client setup ──────────────────────────────
 const client = new Client({
@@ -62,7 +63,7 @@ client.commands = new Collection();
 const commandModules = [
   startCommand, homeCommand,
   crimeCommand, gtaCommand, crewCommand, combatCommand, searchCommand, shootCommand,
-  travelCommand, businessCommand, gamblingCommand, adminCommand, gadminCommand,
+  travelCommand, businessCommand, gamblingCommand, adminCommand, gadminCommand, dmtestCommand,
 ];
 for (const mod of commandModules) {
   if (mod.data) client.commands.set(mod.data.name, mod);
