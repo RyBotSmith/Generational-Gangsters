@@ -11,6 +11,7 @@ const { CRIMES, RANKS } = require('../data/constants');
 const { getRankIndex }  = require('../utils/helpers');
 const { renderCrimeList, renderCommitResult } = require('./renderers/crimeRenderer');
 const embeds = require('../utils/embeds');
+const { checkRankUp, dmRankUp } = require('../utils/dmService');
 
 // ── Helpers ───────────────────────────────────
 
@@ -59,8 +60,21 @@ async function handle(interaction) {
       return safeFollowUp(interaction, { embeds: [embeds.error('No player found.')] });
     }
 
+    const oldXp       = player.xp ?? 0;
     const commitResult = await crimeService.commitAllCrimes(serverId, discordId, crew);
-    const payload      = renderCommitResult(commitResult);
+
+    // Check rank-up across all successful crimes in the batch
+    const totalXpGained = (commitResult.results ?? [])
+      .filter(r => r.success && r.data?.xpGained)
+      .reduce((sum, r) => sum + r.data.xpGained, 0);
+
+    if (totalXpGained > 0) {
+      const newXp    = oldXp + totalXpGained;
+      const rankedUp = checkRankUp(oldXp, newXp, RANKS);
+      if (rankedUp) dmRankUp(interaction.client, discordId, rankedUp, newXp, RANKS);
+    }
+
+    const payload = renderCommitResult(commitResult);
     return interaction.editReply(payload);
   }
 

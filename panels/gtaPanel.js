@@ -17,6 +17,8 @@ const {
   renderGarageCarView,
 } = require('./renderers/gtaRenderer');
 const embeds = require('../utils/embeds');
+const { checkRankUp, dmRankUp } = require('../utils/dmService');
+const { RANKS } = require('../data/constants');
 
 // ── Helpers ───────────────────────────────────
 
@@ -79,7 +81,15 @@ async function handle(interaction) {
       return safeFollowUp(interaction, { embeds: [embeds.error('No player found.')] });
     }
 
+    const oldXp  = player.xp ?? 0;
     const result  = await gtaService.attemptGTA(serverId, discordId, crew);
+
+    if (result.success && result.data?.xpGained) {
+      const newXp   = oldXp + result.data.xpGained;
+      const rankedUp = checkRankUp(oldXp, newXp, RANKS);
+      if (rankedUp) dmRankUp(interaction.client, discordId, rankedUp, newXp, RANKS);
+    }
+
     const payload = renderGtaAttemptResult(result);
     return interaction.editReply(payload);
   }

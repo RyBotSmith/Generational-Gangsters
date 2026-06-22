@@ -33,6 +33,7 @@ const {
   renderOcError,
 } = require('./renderers/ocRenderer');
 const embeds = require('../utils/embeds');
+const { checkRankUp, dmRankUp } = require('../utils/dmService');
 const { OC_TYPES } = require('../data/constants');
 const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
 
@@ -238,7 +239,26 @@ async function handle(interaction) {
   if (customId.startsWith('panel_oc_start_')) {
     const lobbyId = customId.replace('panel_oc_start_', '');
     await interaction.deferUpdate();
+
+    // Snapshot member XP before the OC runs so we can detect rank-ups
+    const preLobby  = await ocService.getLobby(serverId, lobbyId);
+    const memberIds = preLobby ? Object.keys(preLobby.members ?? {}) : [];
+    const preSnaps  = await Promise.all(memberIds.map(id => playerRepository.getPlayer(serverId, id).catch(() => null)));
+    const xpBefore  = Object.fromEntries(preSnaps.filter(Boolean).map(p => [p.discordId, p.xp ?? 0]));
+
     const result = await ocService.startOC(serverId, discordId, lobbyId);
+
+    // DM any member who crossed a rank boundary
+    if (result.success && result.data?.memberResults) {
+      for (const m of result.data.memberResults) {
+        if (!m.xpGained) continue;
+        const oldXp   = xpBefore[m.discordId] ?? 0;
+        const newXp   = oldXp + m.xpGained;
+        const rankedUp = checkRankUp(oldXp, newXp, RANKS);
+        if (rankedUp) dmRankUp(interaction.client, m.discordId, rankedUp, newXp, RANKS);
+      }
+    }
+
     return interaction.editReply(renderOcResult(result));
   }
 

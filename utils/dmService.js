@@ -122,3 +122,58 @@ function dmRaid(client, ownerId, data) {
 }
 
 module.exports = { dmShot, dmBodyguardKilled, dmRaid };
+
+// ── Rank up notification ──────────────────────
+
+/**
+ * Check if an XP gain crossed a rank boundary.
+ * Returns the new rank object if ranked up, null otherwise.
+ *
+ * @param {number} oldXp
+ * @param {number} newXp
+ * @param {object[]} ranks  — RANKS array from constants
+ * @returns {object|null}   — the new rank if ranked up, else null
+ */
+function checkRankUp(oldXp, newXp, ranks) {
+  let oldRank = 0;
+  let newRank = 0;
+  for (let i = ranks.length - 1; i >= 0; i--) {
+    if (oldXp >= ranks[i].minXP) { oldRank = i; break; }
+  }
+  for (let i = ranks.length - 1; i >= 0; i--) {
+    if (newXp >= ranks[i].minXP) { newRank = i; break; }
+  }
+  if (newRank > oldRank) return ranks[newRank];
+  return null;
+}
+
+/**
+ * DM a player when they rank up.
+ * Fire-and-forget.
+ *
+ * @param {object} client
+ * @param {string} discordId
+ * @param {object} newRank    — { index, name, minXP }
+ * @param {number} newXp
+ * @param {object[]} ranks
+ */
+function dmRankUp(client, discordId, newRank, newXp, ranks) {
+  const nextRank = ranks[newRank.index + 1] ?? null;
+
+  const desc =
+    `You've earned your stripes.\n\n` +
+    `🏅 New rank: **${newRank.name}**\n` +
+    `✨ XP: **${newXp.toLocaleString()}**\n` +
+    (nextRank
+      ? `📈 Next rank: **${nextRank.name}** at **${nextRank.minXP.toLocaleString()} XP**`
+      : `👑 **You've reached the highest rank.** Prestige to continue.`);
+
+  const embed = new EmbedBuilder()
+    .setColor(0xFFD700)
+    .setTitle('🎖️ Rank Up!')
+    .setDescription(desc);
+
+  sendDM(client, discordId, { embeds: [embed] }).catch(() => {});
+}
+
+module.exports = { dmShot, dmBodyguardKilled, dmRaid, checkRankUp, dmRankUp };
