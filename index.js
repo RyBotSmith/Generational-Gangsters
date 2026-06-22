@@ -164,6 +164,8 @@ const SELECT_ROUTES = {
   'select_combat_shoot':         (i) => combatPanel.handleSelect(i),
   'select_bank_transfer_target': (i) => bankPanel.handleSelect(i),
   'select_garage_car':           (i) => gtaPanel.handleSelect(i),
+  'select_traffic_booze':        (i) => traffickingPanel.handleSelect(i),
+  'select_traffic_drug':         (i) => traffickingPanel.handleSelect(i),
 };
 
 // ── Router helpers ────────────────────────────
