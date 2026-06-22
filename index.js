@@ -167,6 +167,7 @@ const SELECT_ROUTES = {
   'select_combat_shoot':         (i) => combatPanel.handleSelect(i),
   'select_bank_transfer_target': (i) => bankPanel.handleSelect(i),
   'select_garage_car':           (i) => gtaPanel.handleSelect(i),
+  'ap2_select_player':            (i) => adminPanel.handleSelect(i),
   'ap2_select_leaderboard':      (i) => adminPanel.handleSelect(i),
 };
 
