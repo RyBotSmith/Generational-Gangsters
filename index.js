@@ -46,6 +46,7 @@ const businessCommand = require('./commands/business');
 const gamblingCommand = require('./commands/gambling');
 const adminCommand    = require('./commands/admin');
 const startCommand    = require('./commands/start');
+const gadminCommand   = require('./commands/gadmin');
 
 // ── Client setup ──────────────────────────────
 const client = new Client({
@@ -61,7 +62,7 @@ client.commands = new Collection();
 const commandModules = [
   startCommand, homeCommand,
   crimeCommand, gtaCommand, crewCommand, combatCommand, searchCommand, shootCommand,
-  travelCommand, businessCommand, gamblingCommand, adminCommand,
+  travelCommand, businessCommand, gamblingCommand, adminCommand, gadminCommand,
 ];
 for (const mod of commandModules) {
   if (mod.data) client.commands.set(mod.data.name, mod);
@@ -95,6 +96,7 @@ const BUTTON_SELECT_ROUTES = {
   'panel_upgrades':     (i) => profilePanel.handle(i),
   'panel_upgrade_buy_': (i) => profilePanel.handle(i),
   'panel_stats':        (i) => profilePanel.handle(i),
+  'panel_leaderboard':  (i) => profilePanel.handle(i),
   'panel_inventory':    (i) => profilePanel.handle(i),
   'panel_inv_equip_':   (i) => profilePanel.handle(i),
   'panel_inv_unequip_': (i) => profilePanel.handle(i),
@@ -149,6 +151,7 @@ const MODAL_ROUTES = {
   'modal_profile':  (i) => profilePanel.handleModal(i),
   'modal_admin':    (i) => adminPanel.handleModal(i),
   'modal_start':    (i) => startPanel.handleModal(i),
+  'ap2_submit_':    (i) => adminPanel.handleModal(i),
 };
 
 // Select menu routes (if different from button prefix — extend as needed)
@@ -164,8 +167,7 @@ const SELECT_ROUTES = {
   'select_combat_shoot':         (i) => combatPanel.handleSelect(i),
   'select_bank_transfer_target': (i) => bankPanel.handleSelect(i),
   'select_garage_car':           (i) => gtaPanel.handleSelect(i),
-  'select_traffic_booze':        (i) => traffickingPanel.handleSelect(i),
-  'select_traffic_drug':         (i) => traffickingPanel.handleSelect(i),
+  'ap2_select_leaderboard':      (i) => adminPanel.handleSelect(i),
 };
 
 // ── Router helpers ────────────────────────────

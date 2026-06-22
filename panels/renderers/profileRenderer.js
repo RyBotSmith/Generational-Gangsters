@@ -137,6 +137,10 @@ function renderProfileHome(player, avatarUrl = null) {
     new ButtonBuilder()
       .setCustomId('panel_prestige')
       .setLabel('🌟 Prestige')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('panel_leaderboard')
+      .setLabel('🏆 Leaderboard')
       .setStyle(ButtonStyle.Secondary)
   );
 
@@ -404,9 +408,128 @@ function renderStatsPanel(player, avatarUrl = null) {
   return { embeds: [embed], components: [row] };
 }
 
+
+
+// ── Leaderboard hub ───────────────────────────
+
+const { StringSelectMenuBuilder } = require('discord.js');
+
+const LEADERBOARD_CATEGORIES = {
+  xp:              'XP',
+  cash:            'Cash on Hand',
+  bank:            'Bank Balance',
+  kills:           'Kills',
+  deaths:          'Deaths',
+  crimes:          'Crimes Completed',
+  gta:             'GTA Steals',
+  net_gambling:    'Gambling Net',
+  cash_from_drugs: 'Drug Profit',
+  cash_from_booze: 'Booze Profit',
+  oc_succeeded:    'OC Completed',
+  bullets:         'Bullets',
+  prestige:        'Prestige',
+};
+
+// Field path map for display value extraction
+const LB_FIELDS = {
+  xp:              'xp',
+  cash:            'cash',
+  bank:            'bank',
+  kills:           'stats.kills',
+  deaths:          'stats.deaths',
+  crimes:          'stats.crimesSucceeded',
+  gta:             'stats.gtaSucceeded',
+  net_gambling:    'stats.netGambling',
+  cash_from_drugs: 'stats.cashFromDrugs',
+  cash_from_booze: 'stats.cashFromBooze',
+  oc_succeeded:    'stats.ocSucceeded',
+  bullets:         'bullets',
+  prestige:        'prestige',
+};
+
+const CASH_FIELDS = new Set(['cash', 'bank', 'net_gambling', 'cash_from_drugs', 'cash_from_booze']);
+
+function renderLeaderboardHub() {
+  const embed = embeds.base(embeds.COLOURS.gold)
+    .setTitle('🏆 Leaderboards')
+    .setDescription('Select a category to see the top 10 players on this server.');
+
+  const options = Object.entries(LEADERBOARD_CATEGORIES).map(([id, label]) => ({
+    label,
+    value: id,
+  }));
+
+  const row1 = new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId('select_leaderboard')
+      .setPlaceholder('Choose a category...')
+      .addOptions(options)
+  );
+
+  const row2 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('panel_profile')
+      .setLabel('⬅ Profile')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('panel_home')
+      .setLabel('🏠 Home')
+      .setStyle(ButtonStyle.Secondary)
+  );
+
+  return { embeds: [embed], components: [row1, row2] };
+}
+
+function renderLeaderboardResult(category, players) {
+  const label = LEADERBOARD_CATEGORIES[category] ?? category;
+  const field = LB_FIELDS[category] ?? category;
+  const isCash = CASH_FIELDS.has(category);
+
+  const lines = players.map((p, i) => {
+    const name  = p.characterName ?? p.username ?? 'Unknown';
+    const parts = field.split('.');
+    let val = p;
+    for (const part of parts) val = val?.[part];
+    val = val ?? 0;
+    const display = isCash ? formatCash(val) : val.toLocaleString();
+    const medal   = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `**${i + 1}.**`;
+    return `${medal} **${name}** — ${display}`;
+  });
+
+  const embed = embeds.base(embeds.COLOURS.gold)
+    .setTitle(`🏆 Top 10 — ${label}`)
+    .setDescription(lines.length ? lines.join('\n') : '*No data yet.*');
+
+  const row1 = new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId('select_leaderboard')
+      .setPlaceholder('Switch category...')
+      .addOptions(Object.entries(LEADERBOARD_CATEGORIES).map(([id, lbl]) => ({
+        label: lbl, value: id,
+      })))
+  );
+
+  const row2 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('panel_leaderboard')
+      .setLabel('⬅ Leaderboards')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('panel_home')
+      .setLabel('🏠 Home')
+      .setStyle(ButtonStyle.Secondary)
+  );
+
+  return { embeds: [embed], components: [row1, row2] };
+}
+
 module.exports = {
   renderProfileHome,
   renderUpgradesPanel,
   renderUpgradePurchaseResult,
   renderStatsPanel,
+  renderLeaderboardHub,
+  renderLeaderboardResult,
+  LEADERBOARD_CATEGORIES,
+  LB_FIELDS,
 };

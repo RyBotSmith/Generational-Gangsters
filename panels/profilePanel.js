@@ -13,6 +13,8 @@ const {
   renderUpgradesPanel,
   renderUpgradePurchaseResult,
   renderStatsPanel,
+  renderLeaderboardHub,
+  renderLeaderboardResult,
 } = require('./renderers/profileRenderer');
 const { renderInventoryHome, renderInventoryActionResult } = require('./renderers/inventoryRenderer');
 const { renderPrestigeHome, renderPrestigeResult }         = require('./renderers/prestigeRenderer');
@@ -119,6 +121,12 @@ async function handle(interaction) {
     return interaction.editReply(renderStatsPanel(player, avatarUrl));
   }
 
+  // ── panel_leaderboard — leaderboard hub ──
+  if (customId === 'panel_leaderboard') {
+    await interaction.deferUpdate();
+    return interaction.editReply(renderLeaderboardHub());
+  }
+
   console.warn('[profilePanel] Unhandled customId:', customId);
 }
 
@@ -127,7 +135,17 @@ async function handleModal(interaction) {
 }
 
 async function handleSelect(interaction) {
-  console.warn('[profilePanel] Unexpected select:', interaction.customId);
+  const { customId } = interaction;
+  const serverId     = interaction.guildId;
+
+  if (customId === 'select_leaderboard') {
+    const category = interaction.values[0];
+    await interaction.deferUpdate();
+    const players = await playerRepository.getLeaderboard(serverId, require('./renderers/profileRenderer').LB_FIELDS[category] ?? category, 10);
+    return interaction.editReply(renderLeaderboardResult(category, players));
+  }
+
+  console.warn('[profilePanel] Unexpected select:', customId);
 }
 
 module.exports = { handle, handleModal, handleSelect };

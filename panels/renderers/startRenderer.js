@@ -110,30 +110,30 @@ function renderCreateResult(result) {
   }
 
   const { characterName, sex, state, cash } = result.data;
+  const sexIcon = sex === 'male' ? '♂' : '♀';
 
-  const embed = embeds.success(
-    'Character Created',
-    `${result.message}\n\n` +
-    `**Name:** ${characterName}\n` +
-    `**Sex:** ${sex === 'male' ? '♂ Male' : '♀ Female'}\n` +
-    `**Starting Location:** ${state}\n` +
-    `**Starting Cash:** ${formatCash(cash ?? 0)}\n\n` +
-    `Use \`/crime\` to commit your first crime and start earning.`
-  );
+  const embed = embeds.base(embeds.COLOURS.gold)
+    .setTitle(`🌆 Welcome, ${characterName}`)
+    .setDescription(
+      `You're in. **${state}** is your starting ground — and right now, ` +
+      `you've got **${formatCash(cash ?? 0)}** to your name and nothing but time.\n\n` +
+      `**Generational Gangsters** is a crime RPG built around one idea: ` +
+      `build an empire that outlasts you. Commit crimes, traffic product across states, ` +
+      `run businesses, take out rivals, and climb the ranks from street rat to legend.\n\n` +
+      `**A few things to know:**\n` +
+      `• 🗺️ **Travel** between states to traffic booze and drugs for profit\n` +
+      `• 💼 **Crimes & GTA** are your bread and butter early on\n` +
+      `• 🏦 **Bank your cash** — you lose cash on death, not what's in the bank\n` +
+      `• 👥 **Crews & OC** open up as you rank up\n` +
+      `• ⬆️ **Upgrades** make everything hit harder\n\n` +
+      `Your story starts now, ${sexIcon} **${characterName}**. Don't waste it.`
+    );
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId('panel_crime')
-      .setLabel('🕵️ Crimes')
-      .setStyle(ButtonStyle.Primary),
-    new ButtonBuilder()
-      .setCustomId('panel_profile')
-      .setLabel('👤 Profile')
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
       .setCustomId('panel_home')
-      .setLabel('🏠 Home')
-      .setStyle(ButtonStyle.Secondary)
+      .setLabel("🏠 Let's Go")
+      .setStyle(ButtonStyle.Success)
   );
 
   return { embeds: [embed], components: [row], ephemeral: true };
