@@ -21,7 +21,7 @@ const { formatCash } = require('../../utils/helpers');
 function renderAlreadyStarted() {
   const embed = embeds.info(
     'Already Enlisted',
-    'You already have a character on this server. Use `/profile` to view your stats.'
+    'You already have a character on this server. Use `/home` to get going.'
   );
 
   return { embeds: [embed], components: [], ephemeral: true };
