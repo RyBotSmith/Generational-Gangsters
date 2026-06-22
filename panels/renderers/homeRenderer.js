@@ -164,7 +164,12 @@ function renderHome(player, avatarUrl = null) {
     new ButtonBuilder()
       .setCustomId('panel_profile')
       .setLabel('👤 Profile')
-      .setStyle(ButtonStyle.Secondary)
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+     .setCustomId("panel_jailbreak")
+     .setLabel("Jailbreak")
+     .setEmoji("🔒")
+     .setStyle(ButtonStyle.Danger)
   );
 
   return { embeds: [embed], components: [row1, row2, row3, row4] };

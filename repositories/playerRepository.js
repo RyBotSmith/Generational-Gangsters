@@ -38,6 +38,34 @@ async function resolveTravelIfArrived(ref, player) {
   return { ...player, ...updates };
 }
 
+async function getJailedPlayers(serverId) {
+  const snapshot = await db
+    .collection("servers")
+    .doc(serverId)
+    .collection("players")
+    .get();
+
+  const now = Date.now();
+  const jailed = [];
+
+  snapshot.forEach((doc) => {
+    const data = doc.data();
+    if (data.jailedUntil && data.jailedUntil > now) {
+      jailed.push({
+        discordId:  doc.id,
+        username:   data.username   || doc.id,
+        jailedUntil: data.jailedUntil,
+        bustReward: data.bustReward || 0,
+        cash:       data.cash       || 0,
+      });
+    }
+  });
+
+  // Sort by least time remaining first
+  jailed.sort((a, b) => a.jailedUntil - b.jailedUntil);
+  return jailed;
+}
+
 /**
  * If a player's hospital timer has expired, revive them.
  * Pure data correction — no game logic.
@@ -211,4 +239,5 @@ module.exports = {
   transactPlayer,
   transactTwoPlayers,
   deletePlayer,
+  getJailedPlayers,
 };

@@ -32,6 +32,7 @@ const adminPanel    = require('./panels/adminPanel');
 const ocPanel       = require('./panels/ocPanel');
 const startPanel    = require('./panels/startPanel');
 const homePanel     = require('./panels/homePanel');
+const jailbreakPanel = require("./panels/jailbreakPanel");
 
 // ── Command handlers ──────────────────────────
 const homeCommand     = require('./commands/home');
@@ -48,6 +49,7 @@ const adminCommand    = require('./commands/admin');
 const startCommand    = require('./commands/start');
 const gadminCommand   = require('./commands/gadmin');
 const dmtestCommand   = require('./commands/dmtest');
+
 
 // ── Client setup ──────────────────────────────
 const client = new Client({
@@ -84,6 +86,9 @@ const BUTTON_SELECT_ROUTES = {
   'panelm_traffic':     (i) => traffickingPanel.handle(i),
   'panel_bank':         (i) => bankPanel.handle(i),
   'panelm_bank':        (i) => bankPanel.handle(i),
+  'panel_jailbreak':    (i) => jailbreakPanel.handle(i),
+  "panel_jailbreak_set_reward":   (i) => jailbreakPanel.handle(i),   // opens modal — no defer
+  "panel_jailbreak_bust_select":  (i) => jailbreakPanel.handle(i),
   'panel_shop':         (i) => shopPanel.handle(i),
   'panelm_shop':        (i) => shopPanel.handle(i),
   'panel_business':     (i) => businessPanel.handle(i),
@@ -102,6 +107,8 @@ const BUTTON_SELECT_ROUTES = {
   'panel_inv_equip_':   (i) => profilePanel.handle(i),
   'panel_inv_unequip_': (i) => profilePanel.handle(i),
   'panel_prestige':     (i) => profilePanel.handle(i),
+  "modal_submit_jailbreak_reward": (i) => jailbreakPanel.handleModal(i),
+  
 
   // ── Mobile panels (panelm_) ───────────────
   'panelm_crime':    (i) => crimePanel.handle(i),

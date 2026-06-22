@@ -738,6 +738,9 @@ const ACTION_TYPES = {
   GAMBLE:  'GAMBLE',
   TRAVEL:  'TRAVEL',
   SOCIAL:  'SOCIAL',
+  JAILBREAK_SUCCESS: "jailbreak_success",
+  JAILBREAK_CAUGHT:  "jailbreak_caught",
+  JAILBREAK_FAIL:    "jailbreak_fail",
 };
 
 // ── INTERACTION PREFIXES ─────────────────────
