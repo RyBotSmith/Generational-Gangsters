@@ -13,7 +13,9 @@ const {
   renderIllegalPanel,
   renderBusinessResult,
 } = require('./renderers/businessRenderer');
-const embeds = require('../utils/embeds');
+const embeds     = require('../utils/embeds');
+const dmService  = require('../utils/dmService');
+const { BUSINESS_RAIDS_TO_LOSE } = require('../data/constants');
 
 function safeFollowUp(interaction, payload) {
   return interaction.followUp({ ...payload, ephemeral: true }).catch(() => {});
@@ -103,7 +105,29 @@ async function handle(interaction) {
   // ── panel_business_raid ───────────────────
   if (customId === 'panel_business_raid') {
     await interaction.deferUpdate();
+
+    // Fetch raider + pre-raid slot BEFORE calling raid() so we have
+    // the owner ID even if they get evicted (slot.ownerId → null after eviction).
+    const raider     = await playerRepository.getPlayer(serverId, discordId);
+    const allSlots   = await businessService.getAllSlots(serverId);
+    const preRaidSlot = allSlots.find(s => s.state === raider?.state) ?? null;
+    const ownerId    = preRaidSlot?.ownerId ?? null;
+
     const result = await businessService.raid(serverId, discordId);
+
+    // ── DM the business owner ─────────────
+    if (result.success && result.data?.raidSuccess && ownerId) {
+      const { BUSINESS_TYPES: BT } = require('../data/constants');
+      dmService.dmRaid(interaction.client, ownerId, {
+        raiderName:        raider ? (raider.characterName ?? raider.username) : 'Someone',
+        businessName:      BT[preRaidSlot?.typeId]?.name ?? 'your business',
+        pendingStolen:     result.data.pendingStolen ?? 0,
+        newRaidCount:      result.data.newRaidCount ?? 1,
+        ownerEvicted:      result.data.ownerEvicted ?? false,
+        newRaidCountNeeded: BUSINESS_RAIDS_TO_LOSE,
+      }); // fire-and-forget
+    }
+
     return interaction.editReply(renderBusinessResult(result));
   }
 

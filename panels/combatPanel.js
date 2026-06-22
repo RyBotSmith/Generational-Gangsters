@@ -17,6 +17,7 @@
 
 const combatService    = require('../services/combatService');
 const witness          = require('../services/witness');
+const dmService        = require('../utils/dmService');
 const playerRepository = require('../repositories/playerRepository');
 const {
   renderCombatHome,
@@ -325,21 +326,39 @@ async function handleSelect(interaction) {
 
     await interaction.editReply(renderShootResult(result));
 
-    // ── Witness broadcast on kills / BG kills ──
-    if (result.success && (result.data.outcome === 'kill_player' || result.data.outcome === 'kill_bodyguard')) {
-      const attackerName = displayName(attackerBefore) !== 'Unknown' ? displayName(attackerBefore) : interaction.user.username;
+    if (result.success) {
+      const attackerName    = displayName(attackerBefore) !== 'Unknown' ? displayName(attackerBefore) : interaction.user.username;
       const attackerRankIdx = combatService.rankIndex(attackerBefore ?? {});
-      const state = attackerBefore?.state;
+      const state           = attackerBefore?.state;
 
-      witness.broadcastWitness(interaction.client, serverId, {
-        eventType: result.data.outcome,
-        attackerId: discordId,
-        attackerName,
-        victimId: result.data.victimId,
-        victimName: result.data.victimName,
-        state,
-        attackerRankIdx,
-      }); // fire-and-forget — not awaited
+      // ── DM the victim ─────────────────────
+      if (result.data.outcome === 'kill_player' || result.data.outcome === 'damage_player') {
+        dmService.dmShot(interaction.client, result.data.victimId, {
+          ...result.data,
+          attackerName,
+        });
+      }
+
+      // ── DM the BG owner ───────────────────
+      if (result.data.outcome === 'kill_bodyguard') {
+        dmService.dmBodyguardKilled(interaction.client, result.data.victimId, {
+          ...result.data,
+          attackerName,
+        });
+      }
+
+      // ── Witness broadcast on kills / BG kills ──
+      if (result.data.outcome === 'kill_player' || result.data.outcome === 'kill_bodyguard') {
+        witness.broadcastWitness(interaction.client, serverId, {
+          eventType: result.data.outcome,
+          attackerId: discordId,
+          attackerName,
+          victimId: result.data.victimId,
+          victimName: result.data.victimName,
+          state,
+          attackerRankIdx,
+        }); // fire-and-forget — not awaited
+      }
     }
 
     return;
