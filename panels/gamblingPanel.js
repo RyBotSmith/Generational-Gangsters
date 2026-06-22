@@ -1,27 +1,25 @@
 // ─────────────────────────────────────────────
 //  gamblingPanel.js  —  Routes panel_gamble_* interactions.
 //  Rule: NO game logic. NO direct DB calls.
-//  Defer → call service → render result.
+//  Defer → animate → call service → render result.
 //
 //  customId conventions:
-//    panel_gamble                — hub
-//    panel_gamble_coinflip       — coin flip prompt
-//    panel_gamble_number         — number guess prompt
-//    panel_gamble_dice           — dice roll prompt
-//    panel_gamble_slots          — slots prompt
-//    panel_gamble_blackjack      — blackjack prompt / resume check
-//    panel_gamble_bj_resume      — re-render active hand
-//    panel_gamble_bj_hit         — hit
-//    panel_gamble_bj_stand       — stand
-//    panel_gamble_bj_forfeit     — forfeit active hand
-//
-//  Modal submissions (intercepted in router BEFORE defer):
-//    modal_gamble_coinflip       — opens coin flip bet modal
-//    modal_gamble_number         — opens number guess modal
-//    modal_gamble_dice           — opens dice roll modal
-//    modal_gamble_slots          — opens slots bet modal
-//    modal_gamble_blackjack      — opens blackjack deal modal
-//    modal_submit_gamble_*       — modal submitted, call service
+//    panel_gamble                          — hub
+//    panel_gamble_coinflip                 — prompt
+//    panel_gamble_number                   — prompt
+//    panel_gamble_dice                     — prompt
+//    panel_gamble_slots                    — prompt
+//    panel_gamble_blackjack                — prompt / resume check
+//    panel_gamble_bj_resume                — re-render active hand
+//    panel_gamble_bj_hit                   — hit
+//    panel_gamble_bj_stand                 — stand
+//    panel_gamble_bj_forfeit               — forfeit
+//    panel_gamble_coinflip_again_{bet}_{choice}  — replay same bet
+//    panel_gamble_number_again_{bet}_{guess}     — replay same bet
+//    panel_gamble_dice_again_{bet}_{choice}      — replay same bet
+//    panel_gamble_slots_again_{bet}              — replay same bet
+//    modal_gamble_coinflip / _number / _dice / _slots / _blackjack — open modals
+//    modal_submit_gamble_* — modal submitted
 // ─────────────────────────────────────────────
 
 const gamblingService  = require('../services/gamblingService');
@@ -33,44 +31,32 @@ const {
   renderDicePrompt,
   renderSlotsPrompt,
   renderBlackjackPrompt,
+  renderSlotsSpinning,
+  renderCoinSpinning,
+  renderDiceRolling,
   renderGameResult,
 } = require('./renderers/gamblingRenderer');
 const embeds = require('../utils/embeds');
-const {
-  ModalBuilder,
-  TextInputBuilder,
-  TextInputStyle,
-  ActionRowBuilder,
-} = require('discord.js');
+const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
 const { GAMBLE_MIN_BET, GAMBLE_MAX_BET, GAMBLE_NUMBER_MAX } = require('../data/constants');
-
-// ── Helpers ───────────────────────────────────
 
 function safeFollowUp(interaction, payload) {
   return interaction.followUp({ ...payload, ephemeral: true }).catch(() => {});
 }
 
 function parseBet(raw) {
-  const cleaned = String(raw ?? '').replace(/[,$\s]/g, '');
-  const val = parseInt(cleaned, 10);
+  const val = parseInt(String(raw ?? '').replace(/[,$\s]/g, ''), 10);
   return isNaN(val) ? NaN : val;
 }
 
-// ── Modal builders ────────────────────────────
+// ── Animation helper ──────────────────────────
+// Shows a spinning frame, waits, then resolves with the service result.
 
-function betModal(customId, title, extraFields = []) {
-  const modal = new ModalBuilder().setCustomId(customId).setTitle(title);
-
-  const betInput = new TextInputBuilder()
-    .setCustomId('bet_amount')
-    .setLabel(`Bet amount ($${GAMBLE_MIN_BET.toLocaleString()}–$${GAMBLE_MAX_BET.toLocaleString()})`)
-    .setStyle(TextInputStyle.Short)
-    .setPlaceholder('e.g. 1000')
-    .setRequired(true);
-
-  const rows = [new ActionRowBuilder().addComponents(betInput), ...extraFields];
-  modal.addComponents(...rows);
-  return modal;
+async function animateAndRun(interaction, spinPayload, serviceFn) {
+  await interaction.editReply(spinPayload);
+  await new Promise(r => setTimeout(r, 1500));
+  const result = await serviceFn();
+  return interaction.editReply(renderGameResult(result));
 }
 
 // ── Main handler ──────────────────────────────
@@ -80,74 +66,57 @@ async function handle(interaction) {
   const serverId  = interaction.guildId;
   const discordId = interaction.user.id;
 
-  // ── panel_gamble — hub ────────────────────
+  // ── Hub ───────────────────────────────────
   if (customId === 'panel_gamble' || customId === 'panelm_gamble') {
     await interaction.deferUpdate();
     const player = await playerRepository.getPlayer(serverId, discordId);
-    if (!player) {
-      return safeFollowUp(interaction, { embeds: [embeds.error('No player found. Use /start to create your character.')] });
-    }
+    if (!player) return safeFollowUp(interaction, { embeds: [embeds.error('No player found.')] });
     return interaction.editReply(renderGambleHub(player));
   }
 
-  // ── Game prompts ──────────────────────────
+  // ── Prompts ───────────────────────────────
   if (customId === 'panel_gamble_coinflip') {
     await interaction.deferUpdate();
     return interaction.editReply(renderCoinFlipPrompt());
   }
-
   if (customId === 'panel_gamble_number') {
     await interaction.deferUpdate();
     return interaction.editReply(renderNumberPrompt());
   }
-
   if (customId === 'panel_gamble_dice') {
     await interaction.deferUpdate();
     return interaction.editReply(renderDicePrompt());
   }
-
   if (customId === 'panel_gamble_slots') {
     await interaction.deferUpdate();
     return interaction.editReply(renderSlotsPrompt());
   }
-
   if (customId === 'panel_gamble_blackjack') {
     await interaction.deferUpdate();
     const player = await playerRepository.getPlayer(serverId, discordId);
-    const hasActive = !!player?.blackjackState;
-    return interaction.editReply(renderBlackjackPrompt(hasActive));
+    return interaction.editReply(renderBlackjackPrompt(!!player?.blackjackState));
   }
 
-  // ── Blackjack action buttons ──────────────
+  // ── Blackjack actions ─────────────────────
   if (customId === 'panel_gamble_bj_resume') {
     await interaction.deferUpdate();
     const player = await playerRepository.getPlayer(serverId, discordId);
-    if (!player?.blackjackState) {
-      return interaction.editReply(renderBlackjackPrompt(false));
-    }
-    // Re-render the deal state
+    if (!player?.blackjackState) return interaction.editReply(renderBlackjackPrompt(false));
     const state = player.blackjackState;
-    const fakeResult = {
-      success: true,
-      message: 'Resume your hand.',
+    const CARD_VALUES = { '2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,'J':10,'Q':10,'K':10,'A':11 };
+    let val = 0, aces = 0;
+    for (const c of state.playerHand) { val += CARD_VALUES[c.rank] ?? 0; if (c.rank === 'A') aces++; }
+    while (val > 21 && aces > 0) { val -= 10; aces--; }
+    return interaction.editReply(renderGameResult({
+      success: true, message: '',
       data: {
-        game:        'blackjack',
-        phase:       'deal',
-        playerHand:  state.playerHand,
-        dealerHand:  [state.dealerHand[0], { rank: '?', suit: '?', display: '??' }],
-        playerValue: require('../services/gamblingService').handValue
-          ? null // handValue is internal — re-derive in renderer via hand display
-          : null,
+        game: 'blackjack', phase: 'deal',
+        playerHand: state.playerHand,
+        dealerHand: [state.dealerHand[0], { rank: '?', suit: '?', display: '??' }],
+        playerValue: val,
         bet: state.bet,
       },
-    };
-    // Simplest approach: just call hit with no card (re-render current state via deal render path)
-    const { handValue } = require('../services/gamblingService');
-    fakeResult.data.playerValue = state.playerHand.reduce((sum, c) => {
-      const vals = { '2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,'J':10,'Q':10,'K':10,'A':11 };
-      return sum + (vals[c.rank] ?? 0);
-    }, 0);
-    return interaction.editReply(renderGameResult(fakeResult));
+    }));
   }
 
   if (customId === 'panel_gamble_bj_hit') {
@@ -168,121 +137,127 @@ async function handle(interaction) {
     return interaction.editReply(renderGameResult(result));
   }
 
+  // ── Spin Again handlers ───────────────────
+
+  // coinflip_again_{bet}_{choice}
+  if (customId.startsWith('panel_gamble_coinflip_again_')) {
+    const rest   = customId.replace('panel_gamble_coinflip_again_', '');
+    const parts  = rest.split('_');
+    const choice = parts[parts.length - 1];
+    const bet    = parseInt(parts[0]);
+    await interaction.deferUpdate();
+    return animateAndRun(interaction, renderCoinSpinning(),
+      () => gamblingService.coinFlip(serverId, discordId, bet, choice));
+  }
+
+  // number_again_{bet}_{guess}
+  if (customId.startsWith('panel_gamble_number_again_')) {
+    const rest  = customId.replace('panel_gamble_number_again_', '');
+    const parts = rest.split('_');
+    const guess = parts[parts.length - 1];
+    const bet   = parseInt(parts[0]);
+    await interaction.deferUpdate();
+    return animateAndRun(interaction, renderDiceRolling(),
+      () => gamblingService.numberGuess(serverId, discordId, bet, guess));
+  }
+
+  // dice_again_{bet}_{choice}
+  if (customId.startsWith('panel_gamble_dice_again_')) {
+    const rest   = customId.replace('panel_gamble_dice_again_', '');
+    const parts  = rest.split('_');
+    const choice = parts[parts.length - 1];
+    const bet    = parseInt(parts[0]);
+    await interaction.deferUpdate();
+    return animateAndRun(interaction, renderDiceRolling(),
+      () => gamblingService.diceRoll(serverId, discordId, bet, choice));
+  }
+
+  // slots_again_{bet}
+  if (customId.startsWith('panel_gamble_slots_again_')) {
+    const bet = parseInt(customId.replace('panel_gamble_slots_again_', ''));
+    await interaction.deferUpdate();
+    return animateAndRun(interaction, renderSlotsSpinning(),
+      () => gamblingService.slots(serverId, discordId, bet));
+  }
+
   // ── Modal openers — NO defer before showModal ──
+
   if (customId === 'modal_gamble_coinflip') {
-    const modal = new ModalBuilder()
-      .setCustomId('modal_submit_gamble_coinflip')
-      .setTitle('Coin Flip');
-
-    const choiceInput = new TextInputBuilder()
-      .setCustomId('choice')
-      .setLabel('heads or tails')
-      .setStyle(TextInputStyle.Short)
-      .setPlaceholder('heads')
-      .setRequired(true);
-
-    const betInput = new TextInputBuilder()
-      .setCustomId('bet_amount')
-      .setLabel(`Bet ($${GAMBLE_MIN_BET.toLocaleString()}–$${GAMBLE_MAX_BET.toLocaleString()})`)
-      .setStyle(TextInputStyle.Short)
-      .setPlaceholder('1000')
-      .setRequired(true);
-
+    const modal = new ModalBuilder().setCustomId('modal_submit_gamble_coinflip').setTitle('Coin Flip');
     modal.addComponents(
-      new ActionRowBuilder().addComponents(choiceInput),
-      new ActionRowBuilder().addComponents(betInput)
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('choice').setLabel('heads or tails')
+          .setStyle(TextInputStyle.Short).setPlaceholder('heads').setRequired(true)
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('bet_amount')
+          .setLabel(`Bet ($${GAMBLE_MIN_BET.toLocaleString()}–$${GAMBLE_MAX_BET.toLocaleString()})`)
+          .setStyle(TextInputStyle.Short).setPlaceholder('1000').setRequired(true)
+      )
     );
     return interaction.showModal(modal);
   }
 
   if (customId === 'modal_gamble_number') {
-    const modal = new ModalBuilder()
-      .setCustomId('modal_submit_gamble_number')
-      .setTitle('Number Guess');
-
-    const guessInput = new TextInputBuilder()
-      .setCustomId('guess')
-      .setLabel(`Your number (1–${GAMBLE_NUMBER_MAX})`)
-      .setStyle(TextInputStyle.Short)
-      .setPlaceholder('420')
-      .setRequired(true);
-
-    const betInput = new TextInputBuilder()
-      .setCustomId('bet_amount')
-      .setLabel(`Bet ($${GAMBLE_MIN_BET.toLocaleString()}–$${GAMBLE_MAX_BET.toLocaleString()})`)
-      .setStyle(TextInputStyle.Short)
-      .setPlaceholder('1000')
-      .setRequired(true);
-
+    const modal = new ModalBuilder().setCustomId('modal_submit_gamble_number').setTitle('Number Guess');
     modal.addComponents(
-      new ActionRowBuilder().addComponents(guessInput),
-      new ActionRowBuilder().addComponents(betInput)
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('guess').setLabel(`Your number (1–${GAMBLE_NUMBER_MAX})`)
+          .setStyle(TextInputStyle.Short).setPlaceholder('420').setRequired(true)
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('bet_amount')
+          .setLabel(`Bet ($${GAMBLE_MIN_BET.toLocaleString()}–$${GAMBLE_MAX_BET.toLocaleString()})`)
+          .setStyle(TextInputStyle.Short).setPlaceholder('1000').setRequired(true)
+      )
     );
     return interaction.showModal(modal);
   }
 
   if (customId === 'modal_gamble_dice') {
-    const modal = new ModalBuilder()
-      .setCustomId('modal_submit_gamble_dice')
-      .setTitle('Dice Roll');
-
-    const choiceInput = new TextInputBuilder()
-      .setCustomId('choice')
-      .setLabel('over, under, or seven')
-      .setStyle(TextInputStyle.Short)
-      .setPlaceholder('over')
-      .setRequired(true);
-
-    const betInput = new TextInputBuilder()
-      .setCustomId('bet_amount')
-      .setLabel(`Bet ($${GAMBLE_MIN_BET.toLocaleString()}–$${GAMBLE_MAX_BET.toLocaleString()})`)
-      .setStyle(TextInputStyle.Short)
-      .setPlaceholder('1000')
-      .setRequired(true);
-
+    const modal = new ModalBuilder().setCustomId('modal_submit_gamble_dice').setTitle('Dice Roll');
     modal.addComponents(
-      new ActionRowBuilder().addComponents(choiceInput),
-      new ActionRowBuilder().addComponents(betInput)
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('choice').setLabel('over, under, or seven')
+          .setStyle(TextInputStyle.Short).setPlaceholder('over').setRequired(true)
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('bet_amount')
+          .setLabel(`Bet ($${GAMBLE_MIN_BET.toLocaleString()}–$${GAMBLE_MAX_BET.toLocaleString()})`)
+          .setStyle(TextInputStyle.Short).setPlaceholder('1000').setRequired(true)
+      )
     );
     return interaction.showModal(modal);
   }
 
   if (customId === 'modal_gamble_slots') {
-    const modal = new ModalBuilder()
-      .setCustomId('modal_submit_gamble_slots')
-      .setTitle('Slots');
-
-    const betInput = new TextInputBuilder()
-      .setCustomId('bet_amount')
-      .setLabel(`Bet ($${GAMBLE_MIN_BET.toLocaleString()}–$${GAMBLE_MAX_BET.toLocaleString()})`)
-      .setStyle(TextInputStyle.Short)
-      .setPlaceholder('1000')
-      .setRequired(true);
-
-    modal.addComponents(new ActionRowBuilder().addComponents(betInput));
+    const modal = new ModalBuilder().setCustomId('modal_submit_gamble_slots').setTitle('Slots');
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('bet_amount')
+          .setLabel(`Bet ($${GAMBLE_MIN_BET.toLocaleString()}–$${GAMBLE_MAX_BET.toLocaleString()})`)
+          .setStyle(TextInputStyle.Short).setPlaceholder('1000').setRequired(true)
+      )
+    );
     return interaction.showModal(modal);
   }
 
   if (customId === 'modal_gamble_blackjack') {
-    const modal = new ModalBuilder()
-      .setCustomId('modal_submit_gamble_blackjack')
-      .setTitle('Blackjack — Place Bet');
-
-    const betInput = new TextInputBuilder()
-      .setCustomId('bet_amount')
-      .setLabel(`Bet ($${GAMBLE_MIN_BET.toLocaleString()}–$${GAMBLE_MAX_BET.toLocaleString()})`)
-      .setStyle(TextInputStyle.Short)
-      .setPlaceholder('1000')
-      .setRequired(true);
-
-    modal.addComponents(new ActionRowBuilder().addComponents(betInput));
+    const modal = new ModalBuilder().setCustomId('modal_submit_gamble_blackjack').setTitle('Blackjack');
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('bet_amount')
+          .setLabel(`Bet ($${GAMBLE_MIN_BET.toLocaleString()}–$${GAMBLE_MAX_BET.toLocaleString()})`)
+          .setStyle(TextInputStyle.Short).setPlaceholder('1000').setRequired(true)
+      )
+    );
     return interaction.showModal(modal);
   }
 
   console.warn('[gamblingPanel] Unhandled customId:', customId);
 }
 
-// ── Modal submission handler ──────────────────
+// ── Modal submissions ─────────────────────────
 
 async function handleModal(interaction) {
   const { customId } = interaction;
@@ -294,28 +269,28 @@ async function handleModal(interaction) {
   if (customId === 'modal_submit_gamble_coinflip') {
     const bet    = parseBet(interaction.fields.getTextInputValue('bet_amount'));
     const choice = interaction.fields.getTextInputValue('choice').trim().toLowerCase();
-    const result = await gamblingService.coinFlip(serverId, discordId, bet, choice);
-    return interaction.editReply(renderGameResult(result));
+    return animateAndRun(interaction, renderCoinSpinning(),
+      () => gamblingService.coinFlip(serverId, discordId, bet, choice));
   }
 
   if (customId === 'modal_submit_gamble_number') {
     const bet   = parseBet(interaction.fields.getTextInputValue('bet_amount'));
     const guess = interaction.fields.getTextInputValue('guess').trim();
-    const result = await gamblingService.numberGuess(serverId, discordId, bet, guess);
-    return interaction.editReply(renderGameResult(result));
+    return animateAndRun(interaction, renderDiceRolling(),
+      () => gamblingService.numberGuess(serverId, discordId, bet, guess));
   }
 
   if (customId === 'modal_submit_gamble_dice') {
     const bet    = parseBet(interaction.fields.getTextInputValue('bet_amount'));
     const choice = interaction.fields.getTextInputValue('choice').trim().toLowerCase();
-    const result = await gamblingService.diceRoll(serverId, discordId, bet, choice);
-    return interaction.editReply(renderGameResult(result));
+    return animateAndRun(interaction, renderDiceRolling(),
+      () => gamblingService.diceRoll(serverId, discordId, bet, choice));
   }
 
   if (customId === 'modal_submit_gamble_slots') {
-    const bet    = parseBet(interaction.fields.getTextInputValue('bet_amount'));
-    const result = await gamblingService.slots(serverId, discordId, bet);
-    return interaction.editReply(renderGameResult(result));
+    const bet = parseBet(interaction.fields.getTextInputValue('bet_amount'));
+    return animateAndRun(interaction, renderSlotsSpinning(),
+      () => gamblingService.slots(serverId, discordId, bet));
   }
 
   if (customId === 'modal_submit_gamble_blackjack') {
@@ -326,6 +301,12 @@ async function handleModal(interaction) {
 
   console.warn('[gamblingPanel] Unhandled modal:', customId);
 }
+
+// Add spin_again routes to index.js BUTTON_SELECT_ROUTES:
+// 'panel_gamble_coinflip_again_': (i) => gamblingPanel.handle(i),
+// 'panel_gamble_number_again_':   (i) => gamblingPanel.handle(i),
+// 'panel_gamble_dice_again_':     (i) => gamblingPanel.handle(i),
+// 'panel_gamble_slots_again_':    (i) => gamblingPanel.handle(i),
 
 async function handleSelect(interaction) {
   console.warn('[gamblingPanel] Unexpected select:', interaction.customId);
